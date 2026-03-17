@@ -1,0 +1,105 @@
+{
+  "coverage_score": 0.6359,
+  "estimated_expected_payout": 7.11,
+  "estimated_probability_break_even": 0.3676,
+  "estimated_probability_target": 0.3548,
+  "generated_at": "2026-03-17T15:17:57+00:00",
+  "note": "Optimized with downside-aware scoring to reduce complete-loss scenarios while keeping target-payout coverage under a history-weighted simulation model.",
+  "objective_mode": "downside_aware",
+  "source_latest_draw_number": 3869,
+  "target_draw_number": 3870,
+  "target_payout": 10,
+  "ticket_count": 9,
+  "tickets": [
+    {
+      "main_numbers": [
+        2,
+        10,
+        11,
+        18,
+        24
+      ],
+      "thunderball": 5
+    },
+    {
+      "main_numbers": [
+        6,
+        9,
+        20,
+        32,
+        38
+      ],
+      "thunderball": 3
+    },
+    {
+      "main_numbers": [
+        4,
+        5,
+        11,
+        23,
+        32
+      ],
+      "thunderball": 6
+    },
+    {
+      "main_numbers": [
+        4,
+        7,
+        17,
+        26,
+        38
+      ],
+      "thunderball": 8
+    },
+    {
+      "main_numbers": [
+        3,
+        11,
+        19,
+        31,
+        32
+      ],
+      "thunderball": 5
+    },
+    {
+      "main_numbers": [
+        2,
+        14,
+        21,
+        33,
+        35
+      ],
+      "thunderball": 3
+    },
+    {
+      "main_numbers": [
+        6,
+        11,
+        16,
+        20,
+        26
+      ],
+      "thunderball": 6
+    },
+    {
+      "main_numbers": [
+        7,
+        8,
+        11,
+        16,
+        38
+      ],
+      "thunderball": 5
+    },
+    {
+      "main_numbers": [
+        4,
+        11,
+        15,
+        29,
+        37
+      ],
+      "thunderball": 3
+    }
+  ]
+}

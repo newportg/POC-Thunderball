@@ -18,6 +18,18 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 DATA_FILE = Path("data/thunderball-draw-history.csv")
 XML_URL = "https://www.national-lottery.co.uk/results/thunderball/draw-history/xml"
+FIELDNAMES = [
+    "DrawDate",
+    "Ball 1",
+    "Ball 2",
+    "Ball 3",
+    "Ball 4",
+    "Ball 5",
+    "Thunderball",
+    "Ball Set",
+    "Machine",
+    "DrawNumber",
+]
 
 
 def fetch_xml():
@@ -32,23 +44,32 @@ def parse_draws(xml_content):
     root = etree.fromstring(xml_content)
     draws = []
 
-    # XPath to find all draw elements
-    draw_elements = root.xpath("//draw")
+    game = root.find(".//game")
+    if game is None:
+        return draws
+
+    draw_elements = game.findall("draw")
 
     for draw_elem in draw_elements:
         draw_num = draw_elem.xpath("draw-number/text()")
         draw_date = draw_elem.xpath("draw-date/text()")
         machine = draw_elem.xpath("draw-machine/text()")
 
-        balls = draw_elem.xpath("../balls")
-        if not balls:
+        balls_elem = draw_elem.getnext()
+        while balls_elem is not None and balls_elem.tag != "balls":
+            if balls_elem.tag == "draw":
+                balls_elem = None
+                break
+            balls_elem = balls_elem.getnext()
+
+        if balls_elem is None:
             continue
 
-        ball_set = balls[0].xpath("set/text()")
-        ball_nums = balls[0].xpath("ball/text()")
-        thunderball = balls[0].xpath("bonus-ball[@type='thunderball']/text()")
+        ball_set = balls_elem.xpath("set/text()")
+        ball_nums = balls_elem.xpath("ball/text()")
+        thunderball = balls_elem.xpath("bonus-ball[@type='thunderball']/text()")
 
-        if not (draw_num and draw_date and ball_nums and thunderball):
+        if not (draw_num and draw_date and len(ball_nums) == 5 and thunderball):
             continue
 
         # Convert date format: YYYY-MM-DD -> DD-Mon-YYYY
@@ -111,22 +132,8 @@ def update_csv(new_draws):
             reader = csv.DictReader(f)
             existing_data = list(reader)
 
-    # Write new data (new draws first, then existing)
-    fieldnames = [
-        "DrawDate",
-        "Ball 1",
-        "Ball 2",
-        "Ball 3",
-        "Ball 4",
-        "Ball 5",
-        "Thunderball",
-        "Ball Set",
-        "Machine",
-        "DrawNumber",
-    ]
-
     with open(DATA_FILE, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         writer.writeheader()
         for draw in draws_to_add:
             writer.writerow(draw)

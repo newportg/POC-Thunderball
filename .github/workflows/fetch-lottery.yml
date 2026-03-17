@@ -14,6 +14,8 @@ permissions:
 jobs:
   fetch-and-update:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: src
     
     steps:
       - name: Checkout repository
@@ -30,24 +32,74 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install lxml requests
+          pip install -r requirements
       
       - name: Fetch latest lottery results
         run: |
           python fetch_lottery_results.py
+
+      - name: Evaluate latest result and generate next prediction
+        run: |
+          python evaluate_and_predict.py
+
+      - name: Send prediction report email via Mailtrap API
+        if: ${{ success() && secrets.MAILTRAP_API_TOKEN != '' && (secrets.MAILTRAP_EMAIL_TO != '' || secrets.ALERT_EMAIL_TO != '') && (secrets.MAILTRAP_EMAIL_FROM != '' || secrets.ALERT_EMAIL_FROM != '') }}
+        env:
+          MAILTRAP_API_TOKEN: ${{ secrets.MAILTRAP_API_TOKEN }}
+          MAILTRAP_EMAIL_TO: ${{ secrets.MAILTRAP_EMAIL_TO != '' && secrets.MAILTRAP_EMAIL_TO || secrets.ALERT_EMAIL_TO }}
+          MAILTRAP_EMAIL_FROM: ${{ secrets.MAILTRAP_EMAIL_FROM != '' && secrets.MAILTRAP_EMAIL_FROM || secrets.ALERT_EMAIL_FROM }}
+        run: |
+          python - <<'PY'
+          import json
+          import urllib.request
+
+          token = "${{ env.MAILTRAP_API_TOKEN }}"
+          to_email = "${{ env.MAILTRAP_EMAIL_TO }}"
+          from_email = "${{ env.MAILTRAP_EMAIL_FROM }}"
+
+          with open("reports/latest_email_subject.txt", "r", encoding="utf-8") as fh:
+              subject = fh.read().strip()
+
+          with open("reports/latest_prediction_report.txt", "r", encoding="utf-8") as fh:
+              body = fh.read()
+
+          payload = {
+              "from": {"email": from_email, "name": "Thunderball Predictor"},
+              "to": [{"email": to_email}],
+              "subject": subject,
+              "text": body,
+          }
+
+          req = urllib.request.Request(
+              "https://send.api.mailtrap.io/api/send",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          with urllib.request.urlopen(req, timeout=30) as resp:
+              status = resp.status
+              response_text = resp.read().decode("utf-8")
+
+          if status < 200 or status >= 300:
+              raise SystemExit(f"Mailtrap send failed with status {status}: {response_text}")
+
+          print("Mailtrap email sent successfully")
+          PY
       
       - name: Commit and push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          
-          # Check if there are changes to commit
-          if git diff --quiet data/thunderball-draw-history.csv; then
-            echo "No changes to commit - all draws already up to date"
+
+          git add data/thunderball-draw-history.csv reports/current_prediction.json reports/latest_prediction_report.txt reports/latest_email_subject.txt
+
+          if git diff --cached --quiet; then
+            echo "No repository changes to commit"
           else
-            echo "New draws detected - committing changes"
-            git add data/thunderball-draw-history.csv
-            git commit -m "Update lottery results - $(date +'%Y-%m-%d %H:%M:%S UTC')"
+            git commit -m "Update Thunderball results and prediction report - $(date +'%Y-%m-%d %H:%M:%S UTC')"
             git push
           fi
       
