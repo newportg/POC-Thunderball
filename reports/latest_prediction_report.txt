@@ -8,7 +8,8 @@ Ball set: T6
 
 Evaluation against previous prediction
 --------------------------------------
-No stored prior prediction was available to evaluate.
+Stored prediction target did not match the latest available draw, so no direct evaluation was produced.
+Stored target draw: #3870
 
 Next prediction for draw #3870
 --------------------------------
