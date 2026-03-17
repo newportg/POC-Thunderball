@@ -63,3 +63,7 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+#curl --location --request POST 'https://sandbox.api.mailtrap.io/api/send/4467174' --header 'Authorization: Bearer 651630edaf7f9decc33dc8b14c77ef13' --header 'Content-Type: application/json' --data-raw '{"from":{"email":"hello@example.com","name":"Mailtrap Test"},"to":[{"email":"gary.newport@zoomalong.co.uk"}],"subject":"You are awesome!","text":"Congrats for sending test email with Mailtrap!","category":"Integration Test"}'
+# 651630edaf7f9decc33dc8b14c77ef13
