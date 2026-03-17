@@ -1,0 +1,58 @@
+name: Fetch Lottery Results
+
+on:
+  schedule:
+    # Run at 21:00 UTC on Tuesday (2), Wednesday (3), Friday (5), Saturday (6)
+    - cron: "0 21 * * 2,3,5,6"
+  
+  # Allow manual trigger from Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-and-update:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install lxml requests
+      
+      - name: Fetch latest lottery results
+        run: |
+          python fetch_lottery_results.py
+      
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Check if there are changes to commit
+          if git diff --quiet data/thunderball-draw-history.csv; then
+            echo "No changes to commit - all draws already up to date"
+          else
+            echo "New draws detected - committing changes"
+            git add data/thunderball-draw-history.csv
+            git commit -m "Update lottery results - $(date +'%Y-%m-%d %H:%M:%S UTC')"
+            git push
+          fi
+      
+      - name: Notify on new draws
+        if: ${{ failure() }}
+        run: |
+          echo "⚠️ Failed to fetch lottery results. Check logs for details."
+          exit 1
