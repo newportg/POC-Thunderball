@@ -4,13 +4,14 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import mailtrap as mt
+import requests
 
 SUBJECT_FILE = Path("reports/latest_email_subject.txt")
 BODY_FILE = Path("reports/latest_prediction_report.txt")
 
-# Inbox ID for sandbox mode (found in your Mailtrap inbox URL)
-MAILTRAP_SANDBOX_INBOX_ID = int(os.getenv("MAILTRAP_SANDBOX_INBOX_ID", "4467174"))
+# Sandbox: https://sandbox.api.mailtrap.io/api/send/<inbox_id>
+# Production: https://send.api.mailtrap.io/api/send
+MAILTRAP_SANDBOX_INBOX_ID = os.getenv("MAILTRAP_SANDBOX_INBOX_ID", "4467174").strip()
 
 
 def main() -> int:
@@ -26,21 +27,30 @@ def main() -> int:
     subject = SUBJECT_FILE.read_text(encoding="utf-8").strip()
     body = BODY_FILE.read_text(encoding="utf-8")
 
-    mail = mt.Mail(
-        sender=mt.Address(email=from_email, name="Thunderball Predictor"),
-        to=[mt.Address(email=to_email)],
-        subject=subject,
-        text=body,
-    )
-
     if use_sandbox:
-        client = mt.MailtrapClient(token=token, sandbox=True, inbox_id=str(MAILTRAP_SANDBOX_INBOX_ID))
+        url = f"https://sandbox.api.mailtrap.io/api/send/{MAILTRAP_SANDBOX_INBOX_ID}"
         print(f"Sending via Mailtrap sandbox (inbox {MAILTRAP_SANDBOX_INBOX_ID})...")
     else:
-        client = mt.MailtrapClient(token=token)
+        url = "https://send.api.mailtrap.io/api/send"
         print("Sending via Mailtrap production...")
 
-    client.send(mail)
+    payload = {
+        "from": {"email": from_email, "name": "Thunderball Predictor"},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "text": body,
+    }
+
+    response = requests.post(
+        url,
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    )
+
+    if not response.ok:
+        raise SystemExit(f"Mailtrap send failed {response.status_code}: {response.text}")
+
     print("Mailtrap email sent successfully")
     return 0
 
