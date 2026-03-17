@@ -34,7 +34,7 @@ def main() -> int:
     )
 
     if use_sandbox:
-        client = mt.MailtrapClient(token=token, is_sandbox=True, sandbox_inbox_id=MAILTRAP_SANDBOX_INBOX_ID)
+        client = mt.MailtrapClient(token=token, sandbox=True, inbox_id=str(MAILTRAP_SANDBOX_INBOX_ID))
         print(f"Sending via Mailtrap sandbox (inbox {MAILTRAP_SANDBOX_INBOX_ID})...")
     else:
         client = mt.MailtrapClient(token=token)
