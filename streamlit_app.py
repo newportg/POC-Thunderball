@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -7,7 +9,6 @@ import streamlit as st
 
 from thunderball_predictor.algorithms import (
     TICKET_COST_GBP,
-    available_algorithms,
     evaluate_rolling_timeline,
     optimize_ticket_portfolio,
 )
@@ -125,6 +126,159 @@ def _to_csv_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode("utf-8")
 
 
+PREDICTION_STATE_FILE = Path("reports/current_prediction.json")
+THRESHOLD_STATE_FILE = Path("reports/no_bet_threshold.json")
+ROLLING_TIMELINE_SUMMARY_FILE = Path("reports/rolling_9_draw_timeline_summary.csv")
+ROLLING_TIMELINE_DETAIL_FILE = Path("reports/rolling_9_draw_timeline_predictions.csv")
+ROLLING_TIMELINE_META_FILE = Path("reports/rolling_9_draw_timeline_cache.json")
+
+
+def _load_saved_threshold() -> float:
+    if THRESHOLD_STATE_FILE.exists():
+        try:
+            return float(json.loads(THRESHOLD_STATE_FILE.read_text(encoding="utf-8")).get("no_bet_threshold", 0.20))
+        except Exception:
+            return 0.20
+    return 0.20
+
+
+def _save_threshold(value: float) -> None:
+    THRESHOLD_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    THRESHOLD_STATE_FILE.write_text(json.dumps({"no_bet_threshold": value}, indent=2) + "\n", encoding="utf-8")
+
+
+def _on_threshold_change() -> None:
+    _save_threshold(st.session_state["rolling_no_bet_threshold"])
+
+
+def _build_rolling_timeline_cache_metadata(
+    df: pd.DataFrame,
+    objective_mode: str,
+    no_bet_threshold: float,
+) -> dict[str, object]:
+    return {
+        "objective_mode": objective_mode,
+        "no_bet_threshold": round(float(no_bet_threshold), 2),
+        "row_count": int(len(df)),
+        "data_hash": int(pd.util.hash_pandas_object(df, index=True).sum()),
+    }
+
+
+def _load_rolling_timeline_cache_metadata() -> dict[str, object] | None:
+    if ROLLING_TIMELINE_META_FILE.exists():
+        try:
+            return json.loads(ROLLING_TIMELINE_META_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+    return None
+
+
+def _load_saved_rolling_timeline_frames(
+    df: pd.DataFrame,
+    objective_mode: str,
+    no_bet_threshold: float,
+) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+    expected_metadata = _build_rolling_timeline_cache_metadata(df, objective_mode, no_bet_threshold)
+    saved_metadata = _load_rolling_timeline_cache_metadata()
+    if saved_metadata != expected_metadata:
+        return None
+    if not ROLLING_TIMELINE_SUMMARY_FILE.exists() or not ROLLING_TIMELINE_DETAIL_FILE.exists():
+        return None
+    try:
+        return pd.read_csv(ROLLING_TIMELINE_SUMMARY_FILE), pd.read_csv(ROLLING_TIMELINE_DETAIL_FILE)
+    except Exception:
+        return None
+
+
+def _save_rolling_timeline_frames(
+    summary_df: pd.DataFrame,
+    detail_df: pd.DataFrame,
+    df: pd.DataFrame,
+    objective_mode: str,
+    no_bet_threshold: float,
+) -> None:
+    ROLLING_TIMELINE_META_FILE.parent.mkdir(parents=True, exist_ok=True)
+    summary_df.to_csv(ROLLING_TIMELINE_SUMMARY_FILE, index=False)
+    detail_df.to_csv(ROLLING_TIMELINE_DETAIL_FILE, index=False)
+    metadata = _build_rolling_timeline_cache_metadata(df, objective_mode, no_bet_threshold)
+    ROLLING_TIMELINE_META_FILE.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _refresh_rolling_timeline_frames(
+    df: pd.DataFrame,
+    objective_mode: str,
+    no_bet_threshold: float,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    frames = _build_rolling_timeline_frames(
+        df,
+        objective_mode=objective_mode,
+        no_bet_threshold=no_bet_threshold,
+    )
+    _save_rolling_timeline_frames(
+        frames[0],
+        frames[1],
+        df,
+        objective_mode=objective_mode,
+        no_bet_threshold=no_bet_threshold,
+    )
+    return frames
+
+
+def _load_prediction_state() -> dict | None:
+    if PREDICTION_STATE_FILE.exists():
+        try:
+            return json.loads(PREDICTION_STATE_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+    return None
+
+
+def _save_prediction_state(state: dict) -> None:
+    PREDICTION_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PREDICTION_STATE_FILE.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _generate_prediction_state(df: pd.DataFrame) -> dict:
+    portfolio = optimize_ticket_portfolio(
+        df,
+        ticket_count=DEFAULT_PORTFOLIO_TICKET_COUNT,
+        target_payout=DEFAULT_TARGET_PAYOUT,
+        seed=42,
+        simulation_draws=2500,
+        objective_mode="downside_aware",
+    )
+    latest_draw_number = int(df.sort_values("draw_date", ascending=False).iloc[0].name) if "draw_number" not in df.columns else int(df.sort_values("draw_date", ascending=False).iloc[0]["draw_number"])
+    # Try to read the latest draw number from the raw CSV so it matches evaluate_and_predict.py
+    try:
+        raw = pd.read_csv("data/thunderball-draw-history.csv")
+        raw["DrawNumber"] = pd.to_numeric(raw["DrawNumber"], errors="coerce")
+        raw["DrawDate"] = pd.to_datetime(raw["DrawDate"], errors="coerce", dayfirst=True)
+        latest_draw_number = int(raw.dropna(subset=["DrawNumber"]).sort_values("DrawDate", ascending=False).iloc[0]["DrawNumber"])
+    except Exception:
+        latest_draw_number = 0
+
+    return {
+        "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
+        "source_latest_draw_number": latest_draw_number,
+        "target_draw_number": latest_draw_number + 1,
+        "objective_mode": "downside_aware",
+        "ticket_count": len(portfolio.tickets),
+        "target_payout": portfolio.target_payout,
+        "estimated_expected_payout": round(portfolio.estimated_expected_payout, 2),
+        "estimated_probability_target": round(portfolio.estimated_probability_target, 4),
+        "estimated_probability_break_even": round(portfolio.estimated_probability_break_even, 4),
+        "coverage_score": round(portfolio.coverage_score, 4),
+        "note": portfolio.note,
+        "tickets": [
+            {"main_numbers": list(t.main_numbers), "thunderball": t.thunderball}
+            for t in portfolio.tickets
+        ],
+    }
+
+
 @st.cache_data
 def _tune_no_bet_threshold(
     df: pd.DataFrame,
@@ -201,14 +355,6 @@ with st.sidebar:
     st.markdown("CSV columns required:")
     st.code("draw_date,n1,n2,n3,n4,n5,thunderball")
 
-    st.header("Predictions")
-    selected_algorithms = st.multiselect(
-        "Algorithms",
-        list(available_algorithms().keys()),
-        default=list(available_algorithms().keys()),
-    )
-    prediction_count = st.slider("Predictions per algorithm", min_value=1, max_value=10, value=3)
-
 try:
     if uploaded_file is not None:
         df = _load_from_upload(uploaded_file.getvalue())
@@ -245,86 +391,52 @@ with right:
     st.subheader("Thunderball Frequency")
     st.bar_chart(tb_freq.set_index("number"))
 
-st.subheader("Generate Predictions")
-if not selected_algorithms:
-    st.warning("Select at least one algorithm in the sidebar.")
-else:
-    rows: list[dict[str, str | int | float]] = []
-    algo_map = available_algorithms()
-
-    if st.button("Predict Next Draw"):
-        for algo_name in selected_algorithms:
-            predictor = algo_map[algo_name]
-            for idx in range(prediction_count):
-                result = predictor(df, seed=idx + 1)
-                rows.append(
-                    {
-                        "Algorithm": result.algorithm,
-                        "Main Numbers": "-".join(str(n) for n in result.main_numbers),
-                        "Thunderball": result.thunderball,
-                        "Confidence": round(result.confidence, 3),
-                        "Method Note": result.note,
-                    }
-                )
-
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-        st.info(
-            "Confidence is a relative heuristic based on distribution concentration, "
-            "not a probability of winning."
-        )
-
 st.subheader("Prize Matrix")
 st.dataframe(PRIZE_MATRIX_DF, use_container_width=True, hide_index=True)
 
-st.subheader("Optimized 9-Ticket Portfolio")
-st.caption(
-    "Portfolio objective: 9 tickets at GBP1 each, optimized for the chance that total payout reaches GBP10 "
-    "or better under a history-weighted simulation of future draws."
-)
+st.subheader("Next Draw Prediction")
+st.caption("Prediction generated from all available historical draws using the downside-aware portfolio optimizer.")
 
-if "optimized_portfolio" not in st.session_state:
-    st.session_state["optimized_portfolio"] = None
+if "next_draw_prediction" not in st.session_state:
+    st.session_state["next_draw_prediction"] = _load_prediction_state()
 
-if st.button("Optimize 9 Tickets for GBP10"):
-    with st.spinner("Searching for the strongest 9-ticket portfolio..."):
-        st.session_state["optimized_portfolio"] = optimize_ticket_portfolio(
-            df,
-            ticket_count=DEFAULT_PORTFOLIO_TICKET_COUNT,
-            target_payout=DEFAULT_TARGET_PAYOUT,
-            seed=42,
-        )
+pred = st.session_state.get("next_draw_prediction")
 
-portfolio = st.session_state.get("optimized_portfolio")
-if portfolio is not None:
-    total_cost = len(portfolio.tickets) * TICKET_COST_GBP
-    metric_left, metric_mid, metric_right = st.columns(3)
-    metric_left.metric("Portfolio Cost", f"GBP{total_cost}")
-    metric_mid.metric(
-        "Est. Payout >= GBP10",
-        f"{portfolio.estimated_probability_target * 100:.1f}%",
-    )
-    metric_right.metric(
-        "Est. Expected Payout",
-        f"GBP{portfolio.estimated_expected_payout:.2f}",
-    )
+regen_col, _ = st.columns([1, 3])
+with regen_col:
+    if st.button("🔄 Regenerate Prediction", key="regen_next_draw"):
+        with st.spinner("Generating new prediction from all available draws..."):
+            new_pred = _generate_prediction_state(df)
+            _save_prediction_state(new_pred)
+            st.session_state["next_draw_prediction"] = new_pred
+            pred = new_pred
+        st.success("Prediction regenerated.")
 
+if pred:
+    nd_col1, nd_col2, nd_col3, nd_col4 = st.columns(4)
+    nd_col1.metric("Target Draw", f"#{pred['target_draw_number']}")
+    nd_col2.metric("Est. Expected Payout", f"£{pred['estimated_expected_payout']}")
+    nd_col3.metric("Break-even Probability", f"{pred['estimated_probability_break_even']:.1%}")
+    nd_col4.metric("Coverage Score", f"{pred['coverage_score']:.3f}")
     st.caption(
-        f"Estimated break-even or better probability: {portfolio.estimated_probability_break_even * 100:.1f}% | "
-        f"Coverage score: {portfolio.coverage_score:.3f}"
+        f"Generated at: {pred['generated_at']} | "
+        f"Based on draw #{pred['source_latest_draw_number']} | "
+        f"Mode: {pred['objective_mode']}"
     )
 
-    portfolio_rows = []
-    for index, ticket in enumerate(portfolio.tickets, start=1):
-        portfolio_rows.append(
-            {
-                "Ticket": index,
-                "Main Numbers": "-".join(str(number) for number in ticket.main_numbers),
-                "Thunderball": ticket.thunderball,
-            }
-        )
-
-    st.dataframe(pd.DataFrame(portfolio_rows), use_container_width=True, hide_index=True)
-    st.info(portfolio.note)
+    ticket_rows = [
+        {
+            "Ticket": i + 1,
+            "Main Numbers": "  -  ".join(f"{n:02d}" for n in t["main_numbers"]),
+            "Thunderball": f"{t['thunderball']:02d}",
+        }
+        for i, t in enumerate(pred["tickets"])
+    ]
+    st.dataframe(pd.DataFrame(ticket_rows), use_container_width=True, hide_index=True)
+    if pred.get("note"):
+        st.info(pred["note"])
+else:
+    st.info("No prediction found. Click 'Regenerate Prediction' to generate one.")
 
 st.subheader("Rolling 9-Draw Timeline")
 st.caption(
@@ -346,9 +458,10 @@ with strategy_col2:
         best_thresh = st.session_state.get("rolling_tuner_best_threshold", 0.20)
         st.session_state["rolling_no_bet_threshold"] = float(best_thresh)
         st.session_state["apply_tuner_recommended"] = False
+        _save_threshold(float(best_thresh))
 
     if "rolling_no_bet_threshold" not in st.session_state:
-        st.session_state["rolling_no_bet_threshold"] = 0.20
+        st.session_state["rolling_no_bet_threshold"] = _load_saved_threshold()
 
     rolling_no_bet_threshold = st.slider(
         "No-Bet Threshold (edge score)",
@@ -356,6 +469,7 @@ with strategy_col2:
         max_value=0.6,
         step=0.01,
         key="rolling_no_bet_threshold",
+        on_change=_on_threshold_change,
         help="Draws with estimated break-even probability below this threshold are skipped.",
     )
 
@@ -388,14 +502,41 @@ if tuner_df is not None and best_threshold is not None:
 
 if "rolling_timeline_frames" not in st.session_state:
     st.session_state["rolling_timeline_frames"] = None
+if "rolling_timeline_cache_metadata" not in st.session_state:
+    st.session_state["rolling_timeline_cache_metadata"] = None
 
-if st.button("Run Rolling 9-Draw Timeline"):
+current_rolling_timeline_metadata = _build_rolling_timeline_cache_metadata(
+    df,
+    objective_mode=rolling_objective_mode,
+    no_bet_threshold=rolling_no_bet_threshold,
+)
+
+if st.session_state["rolling_timeline_frames"] is None:
+    cached_frames = _load_saved_rolling_timeline_frames(
+        df,
+        objective_mode=rolling_objective_mode,
+        no_bet_threshold=rolling_no_bet_threshold,
+    )
+    if cached_frames is not None:
+        st.session_state["rolling_timeline_frames"] = cached_frames
+        st.session_state["rolling_timeline_cache_metadata"] = current_rolling_timeline_metadata
+
+refresh_rolling_timeline = False
+if run_tuner:
+    refresh_rolling_timeline = True
+elif st.session_state["rolling_timeline_cache_metadata"] != current_rolling_timeline_metadata:
+    refresh_rolling_timeline = True
+elif st.button("Run Rolling 9-Draw Timeline"):
+    refresh_rolling_timeline = True
+
+if refresh_rolling_timeline:
     with st.spinner("Evaluating each draw from draw 9 onward using all prior draws..."):
-        st.session_state["rolling_timeline_frames"] = _build_rolling_timeline_frames(
+        st.session_state["rolling_timeline_frames"] = _refresh_rolling_timeline_frames(
             df,
             objective_mode=rolling_objective_mode,
             no_bet_threshold=rolling_no_bet_threshold,
         )
+        st.session_state["rolling_timeline_cache_metadata"] = current_rolling_timeline_metadata
 
 rolling_timeline_frames = st.session_state.get("rolling_timeline_frames")
 if rolling_timeline_frames is not None:
