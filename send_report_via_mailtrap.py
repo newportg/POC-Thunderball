@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import json
 import os
-import urllib.error
-import urllib.request
 from pathlib import Path
+
+import mailtrap as mt
 
 SUBJECT_FILE = Path("reports/latest_email_subject.txt")
 BODY_FILE = Path("reports/latest_prediction_report.txt")
-#MAILTRAP_ENDPOINT = "https://send.api.mailtrap.io/api/send"
-MAILTRAP_ENDPOINT = "https://sandbox.api.mailtrap.io/api/send/4467174"  # Updated endpoint for Mailtrap's sandbox environment
+
+# Inbox ID for sandbox mode (found in your Mailtrap inbox URL)
+MAILTRAP_SANDBOX_INBOX_ID = int(os.getenv("MAILTRAP_SANDBOX_INBOX_ID", "4467174"))
 
 
 def main() -> int:
     token = os.getenv("MAILTRAP_API_TOKEN", "").strip()
     to_email = os.getenv("MAILTRAP_EMAIL_TO", "").strip() or os.getenv("ALERT_EMAIL_TO", "").strip()
     from_email = os.getenv("MAILTRAP_EMAIL_FROM", "").strip() or os.getenv("ALERT_EMAIL_FROM", "").strip()
+    use_sandbox = os.getenv("MAILTRAP_USE_SANDBOX", "true").strip().lower() not in {"false", "0", "no"}
 
     if not token or not to_email or not from_email:
         print("Skipping Mailtrap email: missing MAILTRAP_API_TOKEN and/or recipient/sender secrets")
@@ -25,46 +26,25 @@ def main() -> int:
     subject = SUBJECT_FILE.read_text(encoding="utf-8").strip()
     body = BODY_FILE.read_text(encoding="utf-8")
 
-    payload = {
-        "from": {"email": from_email, "name": "Thunderball Predictor"},
-        "to": [{"email": to_email}],
-        "subject": subject,
-        "text": body,
-    }
-
-
-
-    request = urllib.request.Request(
-        MAILTRAP_ENDPOINT,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+    mail = mt.Mail(
+        sender=mt.Address(email=from_email, name="Thunderball Predictor"),
+        to=[mt.Address(email=to_email)],
+        subject=subject,
+        text=body,
     )
 
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            status = response.status
-            response_text = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        error_body = exc.read().decode("utf-8", errors="replace")
-        raise SystemExit(f"Mailtrap HTTP error {exc.code}: {error_body}") from exc
+    if use_sandbox:
+        client = mt.MailtrapClient(token=token, is_sandbox=True, sandbox_inbox_id=MAILTRAP_SANDBOX_INBOX_ID)
+        print(f"Sending via Mailtrap sandbox (inbox {MAILTRAP_SANDBOX_INBOX_ID})...")
+    else:
+        client = mt.MailtrapClient(token=token)
+        print("Sending via Mailtrap production...")
 
-    if status < 200 or status >= 300:
-        raise SystemExit(f"Mailtrap send failed with status {status}: {response_text}")
-
+    client.send(mail)
     print("Mailtrap email sent successfully")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-#curl --location --request POST 'https://sandbox.api.mailtrap.io/api/send/4467174' --header 'Authorization: Bearer 651630edaf7f9decc33dc8b14c77ef13' --header 'Content-Type: application/json' --data-raw '{"from":{"email":"hello@example.com","name":"Mailtrap Test"},"to":[{"email":"gary.newport@zoomalong.co.uk"}],"subject":"You are awesome!","text":"Congrats for sending test email with Mailtrap!","category":"Integration Test"}'
-# 651630edaf7f9decc33dc8b14c77ef13
-
-#curl --location --request POST 'https://sandbox.api.mailtrap.io/api/send/4467174' --header 'Authorization: Bearer 651630edaf7f9decc33dc8b14c77ef13' --header 'Content-Type: application/json' --data-raw '{"from":{"email":"hello@example.com","name":"Mailtrap Test"},"to":[{"email":"gary.newport@zoomalong.co.uk"}],"subject":"You are awesome!","text":"Congrats for sending test email with Mailtrap!","category":"Integration Test"}'
 
