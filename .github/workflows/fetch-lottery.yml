@@ -53,55 +53,7 @@ jobs:
           ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
           ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
         run: |
-          python - <<'PY'
-          import os
-          import json
-          import urllib.error
-          import urllib.request
-
-          token = os.getenv("MAILTRAP_API_TOKEN", "").strip()
-          to_email = os.getenv("MAILTRAP_EMAIL_TO", "").strip() or os.getenv("ALERT_EMAIL_TO", "").strip()
-          from_email = os.getenv("MAILTRAP_EMAIL_FROM", "").strip() or os.getenv("ALERT_EMAIL_FROM", "").strip()
-
-          if not token or not to_email or not from_email:
-              print("Skipping Mailtrap email: missing MAILTRAP_API_TOKEN and/or recipient/sender secrets")
-              raise SystemExit(0)
-
-          with open("reports/latest_email_subject.txt", "r", encoding="utf-8") as fh:
-              subject = fh.read().strip()
-
-          with open("reports/latest_prediction_report.txt", "r", encoding="utf-8") as fh:
-              body = fh.read()
-
-          payload = {
-              "from": {"email": from_email, "name": "Thunderball Predictor"},
-              "to": [{"email": to_email}],
-              "subject": subject,
-              "text": body,
-          }
-
-          req = urllib.request.Request(
-              "https://send.api.mailtrap.io/api/send",
-              data=json.dumps(payload).encode("utf-8"),
-              headers={
-                  "Authorization": f"Bearer {token}",
-                  "Content-Type": "application/json",
-              },
-              method="POST",
-          )
-          try:
-              with urllib.request.urlopen(req, timeout=30) as resp:
-                  status = resp.status
-                  response_text = resp.read().decode("utf-8")
-          except urllib.error.HTTPError as exc:
-              error_body = exc.read().decode("utf-8", errors="replace")
-              raise SystemExit(f"Mailtrap HTTP error {exc.code}: {error_body}") from exc
-
-          if status < 200 or status >= 300:
-              raise SystemExit(f"Mailtrap send failed with status {status}: {response_text}")
-
-          print("Mailtrap email sent successfully")
-          PY
+          python send_report_via_mailtrap.py
 
       - name: Mailtrap send warning
         if: ${{ steps.mailtrap_send.outcome == 'failure' }}
