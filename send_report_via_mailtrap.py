@@ -9,7 +9,8 @@ from pathlib import Path
 
 SUBJECT_FILE = Path("reports/latest_email_subject.txt")
 BODY_FILE = Path("reports/latest_prediction_report.txt")
-MAILTRAP_ENDPOINT = "https://send.api.mailtrap.io/api/send"
+#MAILTRAP_ENDPOINT = "https://send.api.mailtrap.io/api/send"
+MAILTRAP_ENDPOINT = "https://sandbox.api.mailtrap.io/api/send"  # Updated endpoint for Mailtrap's sandbox environment
 
 
 def main() -> int:
