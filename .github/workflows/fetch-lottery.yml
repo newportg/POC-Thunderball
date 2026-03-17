@@ -89,11 +89,11 @@ jobs:
               },
               method="POST",
           )
-            try:
+          try:
               with urllib.request.urlopen(req, timeout=30) as resp:
-                status = resp.status
-                response_text = resp.read().decode("utf-8")
-            except urllib.error.HTTPError as exc:
+                  status = resp.status
+                  response_text = resp.read().decode("utf-8")
+          except urllib.error.HTTPError as exc:
               error_body = exc.read().decode("utf-8", errors="replace")
               raise SystemExit(f"Mailtrap HTTP error {exc.code}: {error_body}") from exc
 
@@ -103,10 +103,10 @@ jobs:
           print("Mailtrap email sent successfully")
           PY
 
-          - name: Mailtrap send warning
-          if: ${{ steps.mailtrap_send.outcome == 'failure' }}
-          run: |
-            echo "⚠️ Mailtrap send failed. Data update still completed; check the Mailtrap step logs for details."
+      - name: Mailtrap send warning
+        if: ${{ steps.mailtrap_send.outcome == 'failure' }}
+        run: |
+          echo "⚠️ Mailtrap send failed. Data update still completed; check the Mailtrap step logs for details."
       
       - name: Commit and push changes
         run: |
