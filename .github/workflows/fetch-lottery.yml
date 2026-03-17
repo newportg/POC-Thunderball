@@ -43,6 +43,8 @@ jobs:
           python evaluate_and_predict.py
 
       - name: Send prediction report email via Mailtrap API
+        id: mailtrap_send
+        continue-on-error: true
         env:
           MAILTRAP_API_TOKEN: ${{ secrets.MAILTRAP_API_TOKEN }}
           MAILTRAP_EMAIL_TO: ${{ secrets.MAILTRAP_EMAIL_TO }}
@@ -53,6 +55,7 @@ jobs:
           python - <<'PY'
           import os
           import json
+          import urllib.error
           import urllib.request
 
           token = os.getenv("MAILTRAP_API_TOKEN", "").strip()
@@ -85,15 +88,24 @@ jobs:
               },
               method="POST",
           )
-          with urllib.request.urlopen(req, timeout=30) as resp:
-              status = resp.status
-              response_text = resp.read().decode("utf-8")
+            try:
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                status = resp.status
+                response_text = resp.read().decode("utf-8")
+            except urllib.error.HTTPError as exc:
+              error_body = exc.read().decode("utf-8", errors="replace")
+              raise SystemExit(f"Mailtrap HTTP error {exc.code}: {error_body}") from exc
 
           if status < 200 or status >= 300:
               raise SystemExit(f"Mailtrap send failed with status {status}: {response_text}")
 
           print("Mailtrap email sent successfully")
           PY
+
+          - name: Mailtrap send warning
+          if: ${{ steps.mailtrap_send.outcome == 'failure' }}
+          run: |
+            echo "⚠️ Mailtrap send failed. Data update still completed; check the Mailtrap step logs for details."
       
       - name: Commit and push changes
         run: |
@@ -109,8 +121,3 @@ jobs:
             git push
           fi
       
-      - name: Notify on new draws
-        if: ${{ failure() }}
-        run: |
-          echo "⚠️ Failed to fetch lottery results. Check logs for details."
-          exit 1
