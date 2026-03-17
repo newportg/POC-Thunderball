@@ -40,8 +40,6 @@ def main() -> int:
         headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
-            "sansbox": "true",  # Indicate that this email should be sent to the sandbox environment
-            "inbox-id": "4467174",  # Specify the inbox ID for the sandbox environment
         },
         method="POST",
     )
