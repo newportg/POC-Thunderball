@@ -48,9 +48,9 @@ jobs:
         continue-on-error: true
         env:
           MAILTRAP_API_TOKEN: ${{ secrets.MAILTRAP_API_TOKEN }}
-          MAILTRAP_EMAIL_TO: ${{ secrets.MAILTRAP_EMAIL_TO }}
-          MAILTRAP_EMAIL_FROM: ${{ secrets.MAILTRAP_EMAIL_FROM }}
-          MAILTRAP_USE_SANDBOX: ${{ secrets.MAILTRAP_USE_SANDBOX }}
+          MAILTRAP_EMAIL_TO: ${{ vars.MAILTRAP_EMAIL_TO }}
+          MAILTRAP_EMAIL_FROM: ${{ vars.MAILTRAP_EMAIL_FROM }}
+          MAILTRAP_USE_SANDBOX: ${{ vars.MAILTRAP_USE_SANDBOX }}
           ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
           ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
         run: |
