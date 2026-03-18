@@ -1,13 +1,13 @@
 {
-  "coverage_score": 0.6846,
-  "estimated_expected_payout": 9.76,
-  "estimated_probability_break_even": 0.4012,
-  "estimated_probability_target": 0.3956,
-  "generated_at": "2026-03-18T13:23:53+00:00",
+  "coverage_score": 0.6154,
+  "estimated_expected_payout": 8.99,
+  "estimated_probability_break_even": 0.4064,
+  "estimated_probability_target": 0.3984,
+  "generated_at": "2026-03-18T21:41:28+00:00",
   "note": "Optimized with downside-aware scoring to reduce complete-loss scenarios while keeping target-payout coverage under a history-weighted simulation model. Main balls with no historical co-occurrence were excluded (0 excluded).",
   "objective_mode": "downside_aware",
-  "source_latest_draw_number": 3870,
-  "target_draw_number": 3871,
+  "source_latest_draw_number": 3871,
+  "target_draw_number": 3872,
   "target_payout": 10,
   "ticket_count": 9,
   "tickets": [
@@ -29,7 +29,7 @@
         32,
         35
       ],
-      "thunderball": 7
+      "thunderball": 11
     },
     {
       "main_numbers": [
@@ -43,51 +43,51 @@
     },
     {
       "main_numbers": [
-        2,
+        3,
+        8,
         11,
-        22,
-        31,
-        32
+        24,
+        28
       ],
       "thunderball": 3
     },
     {
       "main_numbers": [
         13,
-        15,
-        27,
-        29,
+        16,
+        32,
+        36,
         39
       ],
       "thunderball": 5
     },
     {
       "main_numbers": [
-        3,
-        8,
-        14,
-        23,
-        29
+        7,
+        10,
+        21,
+        29,
+        38
       ],
       "thunderball": 3
     },
     {
       "main_numbers": [
-        11,
+        16,
         26,
-        28,
-        32,
-        34
+        27,
+        29,
+        31
       ],
-      "thunderball": 13
+      "thunderball": 8
     },
     {
       "main_numbers": [
-        2,
-        8,
-        10,
-        20,
-        21
+        11,
+        16,
+        27,
+        29,
+        34
       ],
       "thunderball": 5
     },
