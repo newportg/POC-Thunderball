@@ -17,6 +17,12 @@ A Streamlit application to:
 - Optimized 9-ticket portfolio generation targeting a GBP10 total payout threshold
 - Side-by-side algorithm output comparison
 
+## Specification
+
+Current-state behavior is defined in `spec.md` at the repository root.
+
+When behavior changes, update `spec.md` in the same change set so implementation and specification stay aligned.
+
 ## Important Note
 
 Lottery outcomes are random. This app provides exploratory statistical heuristics for

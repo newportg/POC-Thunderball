@@ -1,0 +1,53 @@
+name: Spec Sync Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  verify-spec-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate spec updates for behavior changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.sha }}"
+
+          CHANGED_FILES="$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}")"
+
+          echo "Changed files:" 
+          echo "${CHANGED_FILES}"
+
+          if [[ -z "${CHANGED_FILES}" ]]; then
+            echo "No changed files detected."
+            exit 0
+          fi
+
+          # Files likely to affect runtime behavior or contracts.
+          BEHAVIOR_CHANGE_REGEX='(^src/.*\.py$)|(^streamlit_app\.py$)|(^evaluate_and_predict\.py$)|(^fetch_lottery_results\.py$)|(^send_report_via_mailtrap\.py$)|(^requirements\.txt$)|(^run_fetch\.sh$)|(^setup_cron\.sh$)'
+
+          SPEC_TOUCHED=false
+          if echo "${CHANGED_FILES}" | grep -E '^spec\.md$' >/dev/null 2>&1; then
+            SPEC_TOUCHED=true
+          fi
+
+          BEHAVIOR_TOUCHED=false
+          if echo "${CHANGED_FILES}" | grep -E "${BEHAVIOR_CHANGE_REGEX}" >/dev/null 2>&1; then
+            BEHAVIOR_TOUCHED=true
+          fi
+
+          if [[ "${BEHAVIOR_TOUCHED}" == "true" && "${SPEC_TOUCHED}" != "true" ]]; then
+            echo "Behavior-impacting files changed, but spec.md was not updated."
+            echo "Please update spec.md or explicitly scope your PR to non-behavior changes."
+            exit 1
+          fi
+
+          echo "Spec sync check passed."

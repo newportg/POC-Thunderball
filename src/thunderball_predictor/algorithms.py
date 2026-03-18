@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from itertools import combinations
 from typing import Callable
 
 import numpy as np
@@ -80,6 +81,88 @@ def _normalize(weights: np.ndarray) -> np.ndarray:
     return adjusted / adjusted.sum()
 
 
+def _build_main_cooccurrence_matrix(df: pd.DataFrame) -> np.ndarray:
+    matrix = np.zeros((len(MAIN_RANGE), len(MAIN_RANGE)), dtype=float)
+
+    for _, row in df.iterrows():
+        main_numbers = sorted({int(row[col]) for col in ["n1", "n2", "n3", "n4", "n5"]})
+        for left, right in combinations(main_numbers, 2):
+            matrix[left - 1, right - 1] += 1.0
+            matrix[right - 1, left - 1] += 1.0
+
+    return matrix
+
+
+def _prepare_main_universe_and_weights(
+    base_main_weights: np.ndarray,
+    cooccurrence_matrix: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, int]:
+    cooccurrence_strength = cooccurrence_matrix.sum(axis=1)
+    eligible_mask = cooccurrence_strength > 0
+    eligible_count = int(np.count_nonzero(eligible_mask))
+
+    if eligible_count < 5:
+        raise ValueError("At least 5 co-drawn main numbers are required to build predictions.")
+
+    eligible_universe = MAIN_RANGE[eligible_mask]
+    eligible_base_weights = base_main_weights[eligible_mask]
+    eligible_cooccurrence = cooccurrence_strength[eligible_mask]
+
+    # Blend the base strategy with co-occurrence support so pair-history contributes to selection.
+    blended = 0.75 * _normalize(eligible_base_weights) + 0.25 * _normalize(eligible_cooccurrence)
+    excluded_count = int(len(MAIN_RANGE) - eligible_count)
+    return eligible_universe, _normalize(blended), excluded_count
+
+
+def _pick_main_numbers_with_cooccurrence_chain(
+    rng: np.random.Generator,
+    main_universe: np.ndarray,
+    main_weights: np.ndarray,
+    cooccurrence_matrix: np.ndarray,
+    k: int,
+) -> tuple[int, ...]:
+    if k <= 0:
+        return tuple()
+
+    base_weight_by_number = {
+        int(number): float(weight) for number, weight in zip(main_universe.tolist(), main_weights.tolist())
+    }
+    for _ in range(96):
+        remaining = [int(number) for number in main_universe.tolist()]
+        selected: list[int] = []
+
+        first_weights = _normalize(np.array([base_weight_by_number[number] for number in remaining], dtype=float))
+        first_pick = int(rng.choice(np.array(remaining), p=first_weights))
+        selected.append(first_pick)
+        remaining.remove(first_pick)
+
+        failed = False
+        while len(selected) < k and remaining:
+            previous_number = selected[-1]
+            co_pool = [
+                number for number in remaining if cooccurrence_matrix[previous_number - 1, number - 1] > 0
+            ]
+            if not co_pool:
+                failed = True
+                break
+
+            pool_weights = []
+            for number in co_pool:
+                pair_strength = float(cooccurrence_matrix[previous_number - 1, number - 1])
+                pair_factor = 1.0 + pair_strength
+                pool_weights.append(base_weight_by_number[number] * pair_factor)
+
+            normalized_pool_weights = _normalize(np.array(pool_weights, dtype=float))
+            picked = int(rng.choice(np.array(co_pool), p=normalized_pool_weights))
+            selected.append(picked)
+            remaining.remove(picked)
+
+        if not failed and len(selected) >= k:
+            return tuple(sorted(selected[:k]))
+
+    raise ValueError("Unable to construct a 5-ball sequential co-occurrence chain from available history.")
+
+
 def _build_blended_weights(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
     main_counter, thunder_counter = _extract_frequency(df)
 
@@ -107,7 +190,9 @@ def _build_blended_weights(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
 
 def _generate_diverse_ticket(
     rng: np.random.Generator,
+    main_universe: np.ndarray,
     main_weights: np.ndarray,
+    cooccurrence_matrix: np.ndarray,
     thunder_weights: np.ndarray,
     main_usage: Counter[int],
     thunder_usage: Counter[int],
@@ -115,29 +200,42 @@ def _generate_diverse_ticket(
     adjusted_main = main_weights.copy()
     adjusted_thunder = thunder_weights.copy()
 
-    for idx, number in enumerate(MAIN_RANGE):
+    for idx, number in enumerate(main_universe):
         adjusted_main[idx] = adjusted_main[idx] / (1.0 + 0.12 * main_usage.get(int(number), 0))
 
     for idx, number in enumerate(THUNDERBALL_RANGE):
         adjusted_thunder[idx] = adjusted_thunder[idx] / (1.0 + 0.75 * thunder_usage.get(int(number), 0))
 
-    main_numbers = tuple(
-        _weighted_pick_without_replacement(rng, MAIN_RANGE, _normalize(adjusted_main), 5)
+    main_numbers = _pick_main_numbers_with_cooccurrence_chain(
+        rng,
+        main_universe,
+        _normalize(adjusted_main),
+        cooccurrence_matrix,
+        5,
     )
     thunderball = int(rng.choice(THUNDERBALL_RANGE, p=_normalize(adjusted_thunder)))
     return TicketPrediction(main_numbers=main_numbers, thunderball=thunderball)
 
 
 def _sample_weighted_draws(
-    rng: np.random.Generator, main_weights: np.ndarray, thunder_weights: np.ndarray, sample_size: int
+    rng: np.random.Generator,
+    main_universe: np.ndarray,
+    main_weights: np.ndarray,
+    cooccurrence_matrix: np.ndarray,
+    thunder_weights: np.ndarray,
+    sample_size: int,
 ) -> list[TicketPrediction]:
     draws: list[TicketPrediction] = []
     normalized_main = _normalize(main_weights)
     normalized_thunder = _normalize(thunder_weights)
 
     for _ in range(sample_size):
-        main_numbers = tuple(
-            _weighted_pick_without_replacement(rng, MAIN_RANGE, normalized_main, 5)
+        main_numbers = _pick_main_numbers_with_cooccurrence_chain(
+            rng,
+            main_universe,
+            normalized_main,
+            cooccurrence_matrix,
+            5,
         )
         thunderball = int(rng.choice(THUNDERBALL_RANGE, p=normalized_thunder))
         draws.append(TicketPrediction(main_numbers=main_numbers, thunderball=thunderball))
@@ -166,13 +264,16 @@ def _row_to_ticket(row: pd.Series) -> TicketPrediction:
 
 def _build_candidate_pool(
     df: pd.DataFrame,
+    main_universe: np.ndarray,
     main_weights: np.ndarray,
+    cooccurrence_matrix: np.ndarray,
     thunder_weights: np.ndarray,
     rng: np.random.Generator,
     pool_size: int,
 ) -> list[TicketPrediction]:
     pool: list[TicketPrediction] = []
     seen: set[TicketPrediction] = set()
+    eligible_main_numbers = {int(number) for number in main_universe.tolist()}
     main_usage: Counter[int] = Counter()
     thunder_usage: Counter[int] = Counter()
 
@@ -181,6 +282,8 @@ def _build_candidate_pool(
         for predictor in seeded_predictors:
             result = predictor(df, seed=seed)
             ticket = TicketPrediction(result.main_numbers, result.thunderball)
+            if any(number not in eligible_main_numbers for number in ticket.main_numbers):
+                continue
             if ticket not in seen:
                 pool.append(ticket)
                 seen.add(ticket)
@@ -190,7 +293,15 @@ def _build_candidate_pool(
                 return pool
 
     for _ in range(pool_size * 6):
-        ticket = _generate_diverse_ticket(rng, main_weights, thunder_weights, main_usage, thunder_usage)
+        ticket = _generate_diverse_ticket(
+            rng,
+            main_universe,
+            main_weights,
+            cooccurrence_matrix,
+            thunder_weights,
+            main_usage,
+            thunder_usage,
+        )
         if ticket in seen:
             continue
 
@@ -289,15 +400,29 @@ def optimize_ticket_portfolio(
 
     rng = np.random.default_rng(seed)
     main_weights, thunder_weights = _build_blended_weights(df)
+    cooccurrence_matrix = _build_main_cooccurrence_matrix(df)
+    main_universe, main_weights, excluded_count = _prepare_main_universe_and_weights(
+        main_weights,
+        cooccurrence_matrix,
+    )
 
     candidate_pool = _build_candidate_pool(
         df,
+        main_universe,
         main_weights,
+        cooccurrence_matrix,
         thunder_weights,
         rng,
         pool_size=max(72, ticket_count * 10),
     )
-    sampled_draws = _sample_weighted_draws(rng, main_weights, thunder_weights, simulation_draws)
+    sampled_draws = _sample_weighted_draws(
+        rng,
+        main_universe,
+        main_weights,
+        cooccurrence_matrix,
+        thunder_weights,
+        simulation_draws,
+    )
 
     payout_matrix = np.zeros((len(candidate_pool), len(sampled_draws)), dtype=int)
     for candidate_idx, ticket in enumerate(candidate_pool):
@@ -346,12 +471,14 @@ def optimize_ticket_portfolio(
     if objective_mode == "downside_aware":
         note = (
             "Optimized with downside-aware scoring to reduce complete-loss scenarios while keeping target-payout "
-            "coverage under a history-weighted simulation model."
+            "coverage under a history-weighted simulation model. "
+            f"Main balls with no historical co-occurrence were excluded ({excluded_count} excluded)."
         )
     else:
         note = (
             "Optimized for the probability that a 9-ticket portfolio returns at least the target payout "
-            "under a history-weighted simulation model using the current Thunderball prize matrix."
+            "under a history-weighted simulation model using the current Thunderball prize matrix. "
+            f"Main balls with no historical co-occurrence were excluded ({excluded_count} excluded)."
         )
 
     return PortfolioOptimizationResult(
@@ -453,10 +580,18 @@ def predict_frequency_weighted(df: pd.DataFrame, seed: int | None = None) -> Pre
     rng = np.random.default_rng(seed)
     main_counter, thunder_counter = _extract_frequency(df)
 
-    main_weights = np.array([main_counter.get(n, 0) + 1 for n in MAIN_RANGE], dtype=float)
+    raw_main_weights = np.array([main_counter.get(n, 0) + 1 for n in MAIN_RANGE], dtype=float)
     tb_weights = np.array([thunder_counter.get(n, 0) + 1 for n in THUNDERBALL_RANGE], dtype=float)
+    cooccurrence_matrix = _build_main_cooccurrence_matrix(df)
+    main_universe, main_weights, _ = _prepare_main_universe_and_weights(raw_main_weights, cooccurrence_matrix)
 
-    main_numbers = tuple(_weighted_pick_without_replacement(rng, MAIN_RANGE, main_weights, 5))
+    main_numbers = _pick_main_numbers_with_cooccurrence_chain(
+        rng,
+        main_universe,
+        main_weights,
+        cooccurrence_matrix,
+        5,
+    )
     thunderball = int(rng.choice(THUNDERBALL_RANGE, p=tb_weights / tb_weights.sum()))
 
     return PredictionResult(
@@ -483,10 +618,18 @@ def predict_recency_weighted(
             main_scores[int(row[col])] += weight
         tb_scores[int(row["thunderball"])] += weight
 
-    main_weights = np.array([main_scores[n] for n in MAIN_RANGE], dtype=float)
+    raw_main_weights = np.array([main_scores[n] for n in MAIN_RANGE], dtype=float)
     tb_weights = np.array([tb_scores[n] for n in THUNDERBALL_RANGE], dtype=float)
+    cooccurrence_matrix = _build_main_cooccurrence_matrix(df)
+    main_universe, main_weights, _ = _prepare_main_universe_and_weights(raw_main_weights, cooccurrence_matrix)
 
-    main_numbers = tuple(_weighted_pick_without_replacement(rng, MAIN_RANGE, main_weights, 5))
+    main_numbers = _pick_main_numbers_with_cooccurrence_chain(
+        rng,
+        main_universe,
+        main_weights,
+        cooccurrence_matrix,
+        5,
+    )
     thunderball = int(rng.choice(THUNDERBALL_RANGE, p=tb_weights / tb_weights.sum()))
 
     return PredictionResult(
@@ -501,19 +644,32 @@ def predict_recency_weighted(
 def predict_hot_cold_mix(df: pd.DataFrame, seed: int | None = None) -> PredictionResult:
     rng = np.random.default_rng(seed)
     main_counter, thunder_counter = _extract_frequency(df)
-
+    cooccurrence_matrix = _build_main_cooccurrence_matrix(df)
     ranked_main = sorted(MAIN_RANGE, key=lambda n: main_counter.get(int(n), 0), reverse=True)
-    hot = ranked_main[:20]
-    cold = ranked_main[-19:]
+    hot = {int(number) for number in ranked_main[:20]}
+    cold = {int(number) for number in ranked_main[-19:]}
 
-    chosen_hot = rng.choice(np.array(hot), size=3, replace=False)
-    chosen_cold = rng.choice(np.array(cold), size=2, replace=False)
-    main_numbers = tuple(sorted([int(n) for n in np.concatenate([chosen_hot, chosen_cold])]))
+    hot_cold_scores = np.array([main_counter.get(int(n), 0) + 1 for n in MAIN_RANGE], dtype=float)
+    for idx, number in enumerate(MAIN_RANGE):
+        number_int = int(number)
+        if number_int in hot:
+            hot_cold_scores[idx] *= 1.35
+        elif number_int in cold:
+            hot_cold_scores[idx] *= 1.15
+
+    main_universe, main_weights, _ = _prepare_main_universe_and_weights(hot_cold_scores, cooccurrence_matrix)
+    main_numbers = _pick_main_numbers_with_cooccurrence_chain(
+        rng,
+        main_universe,
+        main_weights,
+        cooccurrence_matrix,
+        5,
+    )
 
     ranked_tb = sorted(THUNDERBALL_RANGE, key=lambda n: thunder_counter.get(int(n), 0), reverse=True)
     thunderball = int(rng.choice(np.array(ranked_tb[:7])))
 
-    main_weights = np.array([main_counter.get(int(n), 0) + 1 for n in MAIN_RANGE], dtype=float)
+    main_weights = np.array([main_counter.get(int(n), 0) + 1 for n in main_universe], dtype=float)
     tb_weights = np.array([thunder_counter.get(int(n), 0) + 1 for n in THUNDERBALL_RANGE], dtype=float)
 
     return PredictionResult(
@@ -580,10 +736,21 @@ def predict_markov_chain(df: pd.DataFrame, seed: int | None = None) -> Predictio
         [thunder_counter.get(int(n), 0) + 1 for n in THUNDERBALL_RANGE], dtype=float
     )
 
-    main_weights = 0.75 * _normalize(main_markov_scores) + 0.25 * _normalize(main_freq_scores)
+    raw_main_weights = 0.75 * _normalize(main_markov_scores) + 0.25 * _normalize(main_freq_scores)
     thunder_weights = 0.75 * _normalize(thunder_markov_scores) + 0.25 * _normalize(thunder_freq_scores)
+    cooccurrence_matrix = _build_main_cooccurrence_matrix(df)
+    main_universe, main_weights, _ = _prepare_main_universe_and_weights(
+        raw_main_weights,
+        cooccurrence_matrix,
+    )
 
-    main_numbers = tuple(_weighted_pick_without_replacement(rng, MAIN_RANGE, main_weights, 5))
+    main_numbers = _pick_main_numbers_with_cooccurrence_chain(
+        rng,
+        main_universe,
+        main_weights,
+        cooccurrence_matrix,
+        5,
+    )
     thunderball = int(rng.choice(THUNDERBALL_RANGE, p=thunder_weights))
 
     return PredictionResult(
