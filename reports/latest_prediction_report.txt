@@ -1,17 +1,33 @@
 Thunderball Automated Update
 
-Latest draw: #3870
-Draw date: 2026-03-17
-Draw result: 05-07-26-31-32 | TB 07
+Latest draw: #3871
+Draw date: 2026-03-18
+Draw result: 16-26-30-31-36 | TB 11
 Machine: Excalibur5
 Ball set: T7
 
 Evaluation against previous prediction
 --------------------------------------
-Stored prediction target did not match the latest available draw, so no direct evaluation was produced.
-Stored target draw: #3871
+Prediction generated at: 2026-03-18T13:23:53+00:00
+Winning tickets: 0 of 9
+Best main match count: 1
+Thunderball hits: 0
+Total payout: GBP0
+Total cost: GBP9
+Net result: GBP-9
 
-Next prediction for draw #3871
+Per-ticket results:
+01. 07-10-11-14-38 | TB 05 | main matches 0 | thunderball N | payout GBP0
+02. 14-24-26-32-35 | TB 07 | main matches 1 | thunderball N | payout GBP0
+03. 01-11-26-37-38 | TB 08 | main matches 1 | thunderball N | payout GBP0
+04. 02-11-22-31-32 | TB 03 | main matches 1 | thunderball N | payout GBP0
+05. 13-15-27-29-39 | TB 05 | main matches 0 | thunderball N | payout GBP0
+06. 03-08-14-23-29 | TB 03 | main matches 0 | thunderball N | payout GBP0
+07. 11-26-28-32-34 | TB 13 | main matches 1 | thunderball N | payout GBP0
+08. 02-08-10-20-21 | TB 05 | main matches 0 | thunderball N | payout GBP0
+09. 04-11-13-22-32 | TB 10 | main matches 0 | thunderball N | payout GBP0
+
+Next prediction for draw #3872
 --------------------------------
 Generated at: 2026-03-20T12:27:52+00:00
 Prediction method: Current Optimizer

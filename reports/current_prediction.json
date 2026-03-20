@@ -39,7 +39,7 @@
         32,
         35
       ],
-      "thunderball": 7
+      "thunderball": 11
     },
     {
       "main_numbers": [
@@ -53,51 +53,51 @@
     },
     {
       "main_numbers": [
-        2,
+        3,
+        8,
         11,
-        22,
-        31,
-        32
+        24,
+        28
       ],
       "thunderball": 3
     },
     {
       "main_numbers": [
         13,
-        15,
-        27,
-        29,
+        16,
+        32,
+        36,
         39
       ],
       "thunderball": 5
     },
     {
       "main_numbers": [
-        3,
-        8,
-        14,
-        23,
-        29
+        7,
+        10,
+        21,
+        29,
+        38
       ],
       "thunderball": 3
     },
     {
       "main_numbers": [
-        11,
+        16,
         26,
-        28,
-        32,
-        34
+        27,
+        29,
+        31
       ],
-      "thunderball": 13
+      "thunderball": 8
     },
     {
       "main_numbers": [
-        2,
-        8,
-        10,
-        20,
-        21
+        11,
+        16,
+        27,
+        29,
+        34
       ],
       "thunderball": 5
     },
