@@ -11,15 +11,21 @@ import pandas as pd
 from thunderball_predictor.algorithms import (
     PRIZE_MATRIX,
     TICKET_COST_GBP,
-    optimize_ticket_portfolio,
 )
 from thunderball_predictor.loader import load_draw_history
+from thunderball_predictor.methods import (
+    AUTOMATION_CONFIG_DEFAULTS,
+    CURRENT_OPTIMIZER_METHOD,
+    generate_method_prediction,
+    normalize_automation_config,
+)
 
 DATA_FILE = Path("data/thunderball-draw-history.csv")
 REPORTS_DIR = Path("reports")
 STATE_FILE = REPORTS_DIR / "current_prediction.json"
 REPORT_FILE = REPORTS_DIR / "latest_prediction_report.txt"
 SUBJECT_FILE = REPORTS_DIR / "latest_email_subject.txt"
+AUTOMATION_CONFIG_FILE = REPORTS_DIR / "future_prediction_config.json"
 
 DEFAULT_TICKET_COUNT = 9
 DEFAULT_TARGET_PAYOUT = 10
@@ -42,6 +48,14 @@ def _read_state() -> dict[str, Any] | None:
 
     with STATE_FILE.open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def _read_automation_config() -> dict[str, Any]:
+    if not AUTOMATION_CONFIG_FILE.exists():
+        return normalize_automation_config(dict(AUTOMATION_CONFIG_DEFAULTS))
+
+    with AUTOMATION_CONFIG_FILE.open("r", encoding="utf-8") as handle:
+        return normalize_automation_config(json.load(handle))
 
 
 def _write_text_if_changed(path: Path, content: str) -> None:
@@ -117,35 +131,79 @@ def _evaluate_prediction(
 
 def _generate_next_prediction(latest_draw_number: int) -> dict[str, Any]:
     history = load_draw_history(DATA_FILE)
-    portfolio = optimize_ticket_portfolio(
+    automation_config = _read_automation_config()
+    method_prediction = generate_method_prediction(
         history,
-        ticket_count=DEFAULT_TICKET_COUNT,
+        config=automation_config,
         target_payout=DEFAULT_TARGET_PAYOUT,
-        seed=DEFAULT_SEED,
         simulation_draws=DEFAULT_SIMULATION_DRAWS,
-        objective_mode=DEFAULT_OBJECTIVE_MODE,
     )
+
+    objective_mode = method_prediction.objective_mode
+    if objective_mode is None and str(automation_config.get("method")) == CURRENT_OPTIMIZER_METHOD:
+        objective_mode = DEFAULT_OBJECTIVE_MODE
 
     return {
         "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
         "source_latest_draw_number": latest_draw_number,
         "target_draw_number": latest_draw_number + 1,
-        "objective_mode": DEFAULT_OBJECTIVE_MODE,
-        "ticket_count": len(portfolio.tickets),
-        "target_payout": portfolio.target_payout,
-        "estimated_expected_payout": round(portfolio.estimated_expected_payout, 2),
-        "estimated_probability_target": round(portfolio.estimated_probability_target, 4),
-        "estimated_probability_break_even": round(portfolio.estimated_probability_break_even, 4),
-        "coverage_score": round(portfolio.coverage_score, 4),
-        "note": portfolio.note,
+        "prediction_method": method_prediction.method_id,
+        "prediction_method_label": method_prediction.method_label,
+        "objective_mode": objective_mode,
+        "ticket_count": len(method_prediction.tickets),
+        "target_payout": DEFAULT_TARGET_PAYOUT,
+        "estimated_expected_payout": round(method_prediction.estimated_expected_payout, 2)
+        if method_prediction.estimated_expected_payout is not None
+        else None,
+        "estimated_probability_target": round(method_prediction.estimated_probability_target, 4)
+        if method_prediction.estimated_probability_target is not None
+        else None,
+        "estimated_probability_break_even": round(method_prediction.estimated_probability_break_even, 4)
+        if method_prediction.estimated_probability_break_even is not None
+        else None,
+        "coverage_score": round(method_prediction.coverage_score, 4)
+        if method_prediction.coverage_score is not None
+        else None,
+        "automation_config": automation_config,
+        "note": method_prediction.note,
         "tickets": [
             {
                 "main_numbers": list(ticket.main_numbers),
                 "thunderball": ticket.thunderball,
             }
-            for ticket in portfolio.tickets
+            for ticket in method_prediction.tickets
         ],
     }
+
+
+def _should_refresh_prediction_state(
+    previous_state: dict[str, Any] | None,
+    latest_draw_number: int,
+) -> bool:
+    if previous_state is None:
+        return True
+
+    if int(previous_state.get("source_latest_draw_number", -1)) != latest_draw_number:
+        return True
+
+    expected_config = _read_automation_config()
+    previous_config = normalize_automation_config(previous_state.get("automation_config"))
+    if previous_config != expected_config:
+        return True
+
+    expected_method = str(expected_config.get("method", CURRENT_OPTIMIZER_METHOD))
+    if str(previous_state.get("prediction_method", "")) != expected_method:
+        return True
+
+    required_fields = {
+        "prediction_method_label",
+        "automation_config",
+        "estimated_expected_payout",
+        "estimated_probability_target",
+        "estimated_probability_break_even",
+        "coverage_score",
+    }
+    return any(field not in previous_state for field in required_fields)
 
 
 def _build_report(
@@ -154,6 +212,21 @@ def _build_report(
     next_prediction: dict[str, Any],
     previous_state: dict[str, Any] | None,
 ) -> tuple[str, str]:
+    def _format_optional_percent(value: Any) -> str:
+        if value is None:
+            return "N/A"
+        return f"{float(value):.2%}"
+
+    def _format_optional_currency(value: Any) -> str:
+        if value is None:
+            return "N/A"
+        return f"GBP{value}"
+
+    def _format_optional_score(value: Any) -> str:
+        if value is None:
+            return "N/A"
+        return f"{float(value):.4f}"
+
     latest_draw_number = int(latest_draw_row["DrawNumber"])
     actual_main = [int(latest_draw_row[column]) for column in ["Ball 1", "Ball 2", "Ball 3", "Ball 4", "Ball 5"]]
     actual_thunderball = int(latest_draw_row["Thunderball"])
@@ -213,11 +286,12 @@ def _build_report(
             f"Next prediction for draw #{next_prediction['target_draw_number']}",
             "--------------------------------",
             f"Generated at: {next_prediction['generated_at']}",
+            f"Prediction method: {next_prediction.get('prediction_method_label', 'Current Optimizer')}",
             f"Objective mode: {next_prediction['objective_mode']}",
-            f"Estimated expected payout: GBP{next_prediction['estimated_expected_payout']}",
-            f"Estimated probability of payout >= GBP{next_prediction['target_payout']}: {next_prediction['estimated_probability_target']:.2%}",
-            f"Estimated probability of break-even: {next_prediction['estimated_probability_break_even']:.2%}",
-            f"Coverage score: {next_prediction['coverage_score']:.4f}",
+            f"Estimated expected payout: {_format_optional_currency(next_prediction['estimated_expected_payout'])}",
+            f"Estimated probability of payout >= GBP{next_prediction['target_payout']}: {_format_optional_percent(next_prediction['estimated_probability_target'])}",
+            f"Estimated probability of break-even: {_format_optional_percent(next_prediction['estimated_probability_break_even'])}",
+            f"Coverage score: {_format_optional_score(next_prediction['coverage_score'])}",
             "",
             "Predicted tickets:",
         ]
@@ -242,10 +316,10 @@ def main() -> None:
     previous_state = _read_state()
     evaluation = _evaluate_prediction(previous_state, latest_draw_number, latest_draw_row)
 
-    if previous_state and int(previous_state.get("source_latest_draw_number", -1)) == latest_draw_number:
-        next_prediction = previous_state
-    else:
+    if _should_refresh_prediction_state(previous_state, latest_draw_number):
         next_prediction = _generate_next_prediction(latest_draw_number)
+    else:
+        next_prediction = previous_state
 
     subject, report = _build_report(latest_draw_row, evaluation, next_prediction, previous_state)
 

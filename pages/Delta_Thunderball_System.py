@@ -303,6 +303,12 @@ st.caption(
     "Experimental page: analyze historical delta signatures and generate delta-based Thunderball tickets. "
     "For exploration and entertainment only."
 )
+st.markdown(
+    "The delta system looks at the gaps between the five sorted main balls in each historical draw, "
+    "treating that gap pattern as a reusable signature. This page shows which delta signatures have appeared "
+    "most often, generates candidate tickets from the strongest recent signatures, and compares that approach "
+    "against the current 9-ticket optimizer."
+)
 
 with st.expander("Data Source", expanded=False):
     uploaded_file = st.file_uploader("Upload Thunderball CSV", type=["csv"], key="delta_upload")
@@ -579,3 +585,49 @@ if backtest_summary_df is not None and backtest_detail_df is not None and not ba
 
         with st.expander("Show draw-by-draw comparison", expanded=False):
             st.dataframe(backtest_detail_df, use_container_width=True, hide_index=True)
+
+        st.subheader("Method Verdict")
+        delta_avg_net = float(
+            backtest_summary_df.loc[backtest_summary_df["Model"] == "Delta System", "Avg Net/Draw"].iloc[0]
+        )
+        current_avg_net = float(
+            backtest_summary_df.loc[backtest_summary_df["Model"] == "Current Optimizer", "Avg Net/Draw"].iloc[0]
+        )
+        if winner == "Delta System":
+            st.success(
+                "In this backtest window the Delta System was the better standalone method, but only for this chosen "
+                "lookback, ticket count, signature pool, and seed."
+            )
+        elif winner == "Current Optimizer":
+            st.warning(
+                "In this backtest window the Delta System was weaker than the current optimizer, so it is better treated "
+                "as an exploratory alternative than the default production method."
+            )
+        else:
+            st.info(
+                "This backtest ended in an effective tie, so the Delta System does not show a clear advantage over the "
+                "current optimizer here."
+            )
+        st.caption(
+            f"Delta avg net/draw: GBP{delta_avg_net:.2f} | Current avg net/draw: GBP{current_avg_net:.2f} | "
+            f"Target-hit difference: {hit_rate_advantage:+.1%}"
+        )
+
+st.divider()
+st.header("Final Next 9-Ticket Delta Prediction")
+st.caption(
+    "This is the Delta System's current next-draw portfolio using the settings selected above."
+)
+final_delta_rows = [
+    {
+        "Ticket": index + 1,
+        "Main Numbers": "-".join(f"{number:02d}" for number in ticket.main_numbers),
+        "Thunderball": f"{ticket.thunderball:02d}",
+        "Delta Signature": "-".join(str(value) for value in ticket.delta_signature),
+    }
+    for index, ticket in enumerate(generated_tickets)
+]
+if final_delta_rows:
+    st.dataframe(pd.DataFrame(final_delta_rows), use_container_width=True, hide_index=True)
+else:
+    st.info("No delta-based ticket set is currently available from the active settings.")

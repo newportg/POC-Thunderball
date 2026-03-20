@@ -1,0 +1,8 @@
+{
+  "delta_top_signatures": 12,
+  "method": "current_optimizer",
+  "optimizer_objective_mode": "downside_aware",
+  "range_lookback_draws": 8,
+  "seed": 42,
+  "ticket_count": 9
+}

@@ -1,11 +1,21 @@
 {
+  "automation_config": {
+    "delta_top_signatures": 12,
+    "method": "current_optimizer",
+    "optimizer_objective_mode": "downside_aware",
+    "range_lookback_draws": 8,
+    "seed": 42,
+    "ticket_count": 9
+  },
   "coverage_score": 0.6846,
   "estimated_expected_payout": 9.76,
   "estimated_probability_break_even": 0.4012,
   "estimated_probability_target": 0.3956,
-  "generated_at": "2026-03-18T13:23:53+00:00",
+  "generated_at": "2026-03-20T12:27:52+00:00",
   "note": "Optimized with downside-aware scoring to reduce complete-loss scenarios while keeping target-payout coverage under a history-weighted simulation model. Main balls with no historical co-occurrence were excluded (0 excluded).",
   "objective_mode": "downside_aware",
+  "prediction_method": "current_optimizer",
+  "prediction_method_label": "Current Optimizer",
   "source_latest_draw_number": 3870,
   "target_draw_number": 3871,
   "target_payout": 10,

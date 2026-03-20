@@ -21,6 +21,13 @@ DEFAULT_TARGET_PAYOUT = 10
 DEFAULT_TIMELINE_LOOKBACK_DRAWS = 9
 DEFAULT_STAKE_GBP = DEFAULT_PORTFOLIO_TICKET_COUNT * TICKET_COST_GBP
 DEFAULT_TARGET_ROI = (DEFAULT_TARGET_PAYOUT / DEFAULT_STAKE_GBP) - 1
+DEFAULT_OBJECTIVE_MODE = "downside_aware"
+OBJECTIVE_MODE_OPTIONS = ["downside_aware", "balanced", "main_hit_focused"]
+OBJECTIVE_MODE_LABELS = {
+    "downside_aware": "Downside Aware",
+    "balanced": "Balanced",
+    "main_hit_focused": "Main-Hit Focused (3+ Mains)",
+}
 
 st.set_page_config(page_title="Thunderball Predictor", page_icon="🎱", layout="wide")
 
@@ -252,6 +259,10 @@ def _refresh_rolling_timeline_frames(
     return frames
 
 
+def _objective_mode_label(value: str) -> str:
+    return OBJECTIVE_MODE_LABELS.get(value, value)
+
+
 def _load_prediction_state() -> dict | None:
     if PREDICTION_STATE_FILE.exists():
         try:
@@ -266,14 +277,14 @@ def _save_prediction_state(state: dict) -> None:
     PREDICTION_STATE_FILE.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def _generate_prediction_state(df: pd.DataFrame) -> dict:
+def _generate_prediction_state(df: pd.DataFrame, objective_mode: str = DEFAULT_OBJECTIVE_MODE) -> dict:
     portfolio = optimize_ticket_portfolio(
         df,
         ticket_count=DEFAULT_PORTFOLIO_TICKET_COUNT,
         target_payout=DEFAULT_TARGET_PAYOUT,
         seed=42,
         simulation_draws=2500,
-        objective_mode="downside_aware",
+        objective_mode=objective_mode,
     )
     latest_draw_number = int(df.sort_values("draw_date", ascending=False).iloc[0].name) if "draw_number" not in df.columns else int(df.sort_values("draw_date", ascending=False).iloc[0]["draw_number"])
     # Try to read the latest draw number from the raw CSV so it matches evaluate_and_predict.py
@@ -289,7 +300,7 @@ def _generate_prediction_state(df: pd.DataFrame) -> dict:
         "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
         "source_latest_draw_number": latest_draw_number,
         "target_draw_number": latest_draw_number + 1,
-        "objective_mode": "downside_aware",
+        "objective_mode": objective_mode,
         "ticket_count": len(portfolio.tickets),
         "target_payout": portfolio.target_payout,
         "estimated_expected_payout": round(portfolio.estimated_expected_payout, 2),
@@ -828,278 +839,9 @@ with grid_right:
 st.subheader("Prize Matrix")
 st.dataframe(PRIZE_MATRIX_DF, use_container_width=True, hide_index=True)
 
-st.subheader("Next Draw Prediction")
-st.caption(
-    "Prediction generated from all available historical draws using the downside-aware portfolio optimizer. "
-    f"Target is >= GBP{DEFAULT_TARGET_PAYOUT} return from a GBP{DEFAULT_STAKE_GBP} stake "
-    f"(about {DEFAULT_TARGET_ROI:.1%} ROI), aligned with prize tiers 3 main balls or 2 main balls + thunderball."
+st.subheader("Method Pages")
+st.info(
+    "This landing page is now the reference view for facts and draw history. Use the method pages in the sidebar "
+    "for theory, rolling backtests, verdicts, and each method's next 9-ticket prediction. Use the Prediction "
+    "Configuration page to choose which method the automated GitHub Action will save for future draws."
 )
-
-if "next_draw_prediction" not in st.session_state:
-    st.session_state["next_draw_prediction"] = _load_prediction_state()
-
-pred = st.session_state.get("next_draw_prediction")
-
-regen_col, _ = st.columns([1, 3])
-with regen_col:
-    if st.button("🔄 Regenerate Prediction", key="regen_next_draw"):
-        with st.spinner("Generating new prediction from all available draws..."):
-            new_pred = _generate_prediction_state(df)
-            _save_prediction_state(new_pred)
-            st.session_state["next_draw_prediction"] = new_pred
-            pred = new_pred
-        st.success("Prediction regenerated.")
-
-if pred:
-    nd_col1, nd_col2, nd_col3, nd_col4, nd_col5 = st.columns(5)
-    nd_col1.metric("Target Draw", f"#{pred['target_draw_number']}")
-    nd_col2.metric("Est. Expected Payout", f"£{pred['estimated_expected_payout']}")
-    nd_col3.metric("ROI Target", f"GBP{pred['target_payout']} on GBP{DEFAULT_STAKE_GBP}")
-    nd_col4.metric("ROI Target Hit Prob", f"{pred['estimated_probability_target']:.1%}")
-    nd_col5.metric("Break-even Probability", f"{pred['estimated_probability_break_even']:.1%}")
-    st.caption(
-        f"Generated at: {pred['generated_at']} | "
-        f"Based on draw #{pred['source_latest_draw_number']} | "
-        f"Mode: {pred['objective_mode']} | "
-        f"Coverage score: {pred['coverage_score']:.3f}"
-    )
-
-    ticket_rows = [
-        {
-            "Ticket": i + 1,
-            "Main Numbers": "  -  ".join(f"{n:02d}" for n in t["main_numbers"]),
-            "Thunderball": f"{t['thunderball']:02d}",
-        }
-        for i, t in enumerate(pred["tickets"])
-    ]
-    st.dataframe(pd.DataFrame(ticket_rows), use_container_width=True, hide_index=True)
-
-    support_lookup = _build_main_cooccurrence_lookup(df)
-    chain_debug_df = _build_prediction_chain_debug_frame(pred["tickets"], support_lookup)
-    with st.expander("Show Prediction Chain Debug (Co-Occurrence Edges)", expanded=False):
-        st.caption(
-            "Shows each ticket's sequential main-ball edges and how many times each edge has appeared together in historical draws."
-        )
-        st.dataframe(chain_debug_df, use_container_width=True, hide_index=True)
-
-    if pred.get("note"):
-        st.info(pred["note"])
-else:
-    st.info("No prediction found. Click 'Regenerate Prediction' to generate one.")
-
-st.subheader("Rolling 9-Draw Timeline")
-st.caption(
-    "For each actual draw from draw 9 onward, the app trains on all prior draws, generates a 9-ticket portfolio, "
-    "then shows the predicted tickets and the realized payout against the actual result. "
-    f"Target performance is >= GBP{DEFAULT_TARGET_PAYOUT} from GBP{DEFAULT_STAKE_GBP} stake "
-    f"(about {DEFAULT_TARGET_ROI:.1%} ROI), corresponding to 3 main balls or 2 main balls + thunderball."
-)
-st.markdown(
-    "**Workflow:** 1) Choose strategy and threshold. "
-    "2) Timeline recalculates automatically when settings change. "
-    "3) Use skipped-profitable analysis to apply the suggested threshold and iterate."
-)
-
-strategy_col1, strategy_col2 = st.columns(2)
-with strategy_col1:
-    rolling_objective_mode = st.selectbox(
-        "Portfolio Strategy",
-        options=["downside_aware", "balanced"],
-        index=0,
-        format_func=lambda value: "Downside Aware" if value == "downside_aware" else "Balanced",
-    )
-with strategy_col2:
-    if st.session_state.get("apply_skipped_profit_recommended", False):
-        suggested_thresh = st.session_state.get("skipped_profit_suggested_threshold", 0.20)
-        st.session_state["rolling_no_bet_threshold"] = float(suggested_thresh)
-        st.session_state["apply_skipped_profit_recommended"] = False
-        _save_threshold(float(suggested_thresh))
-
-    if "rolling_no_bet_threshold" not in st.session_state:
-        st.session_state["rolling_no_bet_threshold"] = _load_saved_threshold()
-
-    rolling_no_bet_threshold = st.slider(
-        "No-Bet Threshold (edge score)",
-        min_value=0.0,
-        max_value=0.6,
-        step=0.01,
-        key="rolling_no_bet_threshold",
-        on_change=_on_threshold_change,
-        help="Draws with estimated break-even probability below this threshold are skipped.",
-    )
-
-if "rolling_timeline_frames" not in st.session_state:
-    st.session_state["rolling_timeline_frames"] = None
-if "rolling_timeline_cache_metadata" not in st.session_state:
-    st.session_state["rolling_timeline_cache_metadata"] = None
-
-current_rolling_timeline_metadata = _build_rolling_timeline_cache_metadata(
-    df,
-    objective_mode=rolling_objective_mode,
-    no_bet_threshold=rolling_no_bet_threshold,
-)
-
-if st.session_state["rolling_timeline_frames"] is None:
-    cached_frames = _load_saved_rolling_timeline_frames(
-        df,
-        objective_mode=rolling_objective_mode,
-        no_bet_threshold=rolling_no_bet_threshold,
-    )
-    if cached_frames is not None:
-        st.session_state["rolling_timeline_frames"] = cached_frames
-        st.session_state["rolling_timeline_cache_metadata"] = current_rolling_timeline_metadata
-
-refresh_rolling_timeline = (
-    st.session_state["rolling_timeline_frames"] is None
-    or st.session_state["rolling_timeline_cache_metadata"] != current_rolling_timeline_metadata
-)
-
-if refresh_rolling_timeline:
-    with st.spinner("Evaluating each draw from draw 9 onward using all prior draws..."):
-        st.session_state["rolling_timeline_frames"] = _refresh_rolling_timeline_frames(
-            df,
-            objective_mode=rolling_objective_mode,
-            no_bet_threshold=rolling_no_bet_threshold,
-        )
-        st.session_state["rolling_timeline_cache_metadata"] = current_rolling_timeline_metadata
-
-rolling_timeline_frames = st.session_state.get("rolling_timeline_frames")
-if rolling_timeline_frames is not None:
-    summary_df, detail_df = rolling_timeline_frames
-    draw_number_lookup = _build_draw_number_lookup()
-    if "Draw Number" not in summary_df.columns:
-        summary_df = summary_df.copy()
-        summary_df.insert(
-            1,
-            "Draw Number",
-            summary_df["Draw Date"].map(lambda value: draw_number_lookup.get(str(value), pd.NA)),
-        )
-
-    if not summary_df.empty:
-        metric_left, metric_mid, metric_right, metric_four = st.columns(4)
-        played_draws = int((summary_df["Played"] == "Yes").sum())
-        skipped_draws = int((summary_df["Played"] == "No").sum())
-        strategy_net = int(summary_df["Net Result"].sum())
-        always_play_net = int(summary_df["Net If Played"].sum())
-        target_hits_if_played = int((summary_df["Payout If Played"] >= DEFAULT_TARGET_PAYOUT).sum())
-        metric_left.metric("Draws Evaluated", len(summary_df))
-        metric_mid.metric("Played / Skipped", f"{played_draws} / {skipped_draws}")
-        metric_right.metric("Strategy Net", f"GBP{strategy_net}")
-        metric_four.metric("Always-Play Net", f"GBP{always_play_net}")
-        st.caption(
-            f"Average strategy net per draw: GBP{summary_df['Net Result'].mean():.2f} | "
-            f"Total avoided loss from skipped draws: GBP{int(summary_df['No-Bet Saved Loss'].sum())} | "
-            f"ROI target hits if always played: {target_hits_if_played}"
-        )
-
-        missed_profitable_df, threshold_sweep_df, threshold_reco = _build_skipped_profitable_analysis(summary_df)
-
-        st.markdown("**Skipped Profitable Draw Analysis**")
-        if missed_profitable_df.empty:
-            st.info("No skipped draws would have produced a positive net result in the current evaluation window.")
-        else:
-            missed_col1, missed_col2, missed_col3 = st.columns(3)
-            missed_col1.metric("Skipped Profitable Draws", len(missed_profitable_df))
-            missed_col2.metric("Missed Net Potential", f"GBP{int(missed_profitable_df['Net If Played'].sum())}")
-            missed_col3.metric("Avg Missed Edge Score", f"{missed_profitable_df['Edge Score'].mean():.3f}")
-
-            reco_threshold = threshold_reco.get("recommended_threshold")
-            if reco_threshold is not None:
-                st.caption(
-                    "Threshold sweep suggestion: "
-                    f"try no-bet threshold {float(reco_threshold):.2f} "
-                    f"(additional net GBP{float(threshold_reco['additional_net']):.0f}, "
-                    f"captures {float(threshold_reco['missed_capture_rate']):.1%} of skipped profitable draws, "
-                    f"adds {int(threshold_reco['additional_plays'])} plays)."
-                )
-                if st.button("Apply Suggested Threshold", key="apply_skipped_profit_threshold"):
-                    suggested = float(reco_threshold)
-                    st.session_state["skipped_profit_suggested_threshold"] = suggested
-                    st.session_state["apply_skipped_profit_recommended"] = True
-                    st.rerun()
-
-            with st.expander("Show skipped profitable draws", expanded=False):
-                st.dataframe(missed_profitable_df, use_container_width=True, hide_index=True)
-
-            sweep_chart = threshold_sweep_df[["Threshold", "Additional Net If Played", "Missed Capture Rate"]].copy()
-            sweep_chart["Missed Capture Rate"] = sweep_chart["Missed Capture Rate"] * 100
-            with st.expander("Show threshold sweep diagnostics", expanded=False):
-                st.caption(
-                    "Additional Net If Played estimates how much net result would change by lowering the no-bet threshold to each value."
-                )
-                st.line_chart(
-                    sweep_chart.set_index("Threshold")[["Additional Net If Played", "Missed Capture Rate"]],
-                    use_container_width=True,
-                )
-                st.dataframe(threshold_sweep_df, use_container_width=True, hide_index=True)
-
-        download_left, download_right = st.columns(2)
-        with download_left:
-            st.download_button(
-                "Download Summary CSV",
-                data=_to_csv_bytes(summary_df),
-                file_name="rolling_9_draw_timeline_summary.csv",
-                mime="text/csv",
-            )
-        with download_right:
-            st.download_button(
-                "Download Predictions CSV",
-                data=_to_csv_bytes(detail_df),
-                file_name="rolling_9_draw_timeline_predictions.csv",
-                mime="text/csv",
-            )
-
-    summary_table = summary_df.copy()
-    summary_table["__draw_date_sort"] = pd.to_datetime(summary_table["Draw Date"], errors="coerce")
-    summary_table = summary_table.sort_values("__draw_date_sort", ascending=False).drop(columns=["__draw_date_sort"])
-    def _status_label(row: pd.Series) -> str:
-        if str(row.get("Played", "")).strip().lower() != "yes":
-            return "Skipped"
-        net_result = float(row.get("Net Result", 0))
-        if net_result > 0:
-            return "Profit"
-        if net_result == 0:
-            return "Break-even"
-        return "Loss"
-
-    summary_table.insert(0, "Status", summary_table.apply(_status_label, axis=1))
-    summary_display_table = summary_table.drop(columns=["Training Window", "No-Bet Saved Loss"], errors="ignore")
-
-    st.markdown("**Per-Draw Summary (click a row to open details)**")
-    selection = st.dataframe(
-        summary_display_table,
-        use_container_width=True,
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-row",
-        key="rolling_timeline_summary_table",
-    )
-
-    selected_rows = selection.selection.get("rows", []) if selection is not None else []
-    if selected_rows:
-        selected_idx = int(selected_rows[0])
-    else:
-        selected_idx = len(summary_table) - 1
-
-    selected_summary = summary_table.iloc[selected_idx]
-    selected_draw = str(selected_summary["Draw Date"])
-
-    with st.expander(f"Draw {selected_draw} drill-down", expanded=True):
-        drill_col1, drill_col2, drill_col3 = st.columns(3)
-        drill_col1.metric("Actual Draw", selected_summary["Actual Main Numbers"])
-        drill_col2.metric("Actual Thunderball", int(selected_summary["Actual Thunderball"]))
-        drill_col3.metric("Net Result", f"GBP{int(selected_summary['Net Result'])}")
-        st.caption(
-            f"Training range: {selected_summary['Training Window']} | "
-            f"Total payout: GBP{int(selected_summary['Total Payout'])} | "
-            f"Winning tickets: {int(selected_summary['Winning Tickets'])}"
-        )
-
-        selected_detail = detail_df.loc[detail_df["Draw Date"] == selected_draw].copy()
-        styled_detail = selected_detail.style.apply(
-            lambda col: [
-                _highlight_prediction_cells(value, col.name) for value in col
-            ],
-            axis=0,
-        )
-        st.dataframe(styled_detail, use_container_width=True, hide_index=True)

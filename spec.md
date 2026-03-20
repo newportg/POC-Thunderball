@@ -1,6 +1,6 @@
 # Thunderball Predictor - Current State Specification
 
-Last updated: 2026-03-18
+Last updated: 2026-03-20
 
 ## 1. Purpose
 
@@ -31,6 +31,10 @@ Out of scope:
 ## 3. System Components
 
 - UI application: streamlit_app.py
+- Method pages:
+  - pages/Delta_Thunderball_System.py
+  - pages/Draw_Position_Range.py
+  - pages/Prediction_Configuration.py
 - Official results fetcher: fetch_lottery_results.py
 - Prediction/report pipeline: evaluate_and_predict.py
 - Email sender: send_report_via_mailtrap.py
@@ -38,6 +42,7 @@ Out of scope:
   - loader.py
   - algorithms.py
   - data_models.py
+  - methods.py
 
 ## 4. Data Contracts
 
@@ -97,7 +102,12 @@ Current constants:
 - default ticket count: 9
 - default target payout: GBP10
 - default simulation draws: 2500
-- objective modes: balanced, downside_aware
+- objective modes: balanced, downside_aware, main_hit_focused
+
+Objective mode behavior:
+- balanced emphasizes target-payout and break-even probability with portfolio coverage and overlap controls
+- downside_aware emphasizes complete-loss reduction and downside shortfall while still considering expected payout, break-even probability, and target-payout probability
+- main_hit_focused emphasizes the simulated probability that any ticket in the portfolio achieves 3+ main matches or 4+ main matches, while still considering payout, downside, and portfolio diversity
 
 ### FR-4: Rolling Timeline Evaluation
 
@@ -113,23 +123,20 @@ The no-bet threshold decision uses estimated break-even probability.
 
 The UI shall provide:
 - dataset loading (default local file or uploaded CSV) via in-page controls, without a persistent left sidebar
-- dedicated Delta System page for Thunderball with delta-signature analytics, delta-based ticket generation, side-by-side next-draw comparison against the current optimizer, and rolling backtest comparison (Delta vs current optimizer) including winner badge and target-hit likelihood comparison
+- facts-first landing page focused on historical reference material rather than live prediction workflows
 - historical results table
 - frequency charts for main balls and thunderball
 - stacked bar chart for main ball frequency by draw position (1st through 5th), with each bar representing a ball number and stack segments representing positional frequency
 - interactive main-ball co-occurrence explorer where clicking a ball highlights all other main balls ever drawn with it, with color intensity representing co-occurrence frequency
 - prediction chain debug panel showing sequential main-ball edges for generated tickets with historical co-occurrence counts per edge
-- explicit ROI target context in prediction and rolling timeline views (GBP10 return from GBP9 stake, about 11.1% ROI), aligned to prize outcomes 3 main balls or 2 main balls plus thunderball
-- target-hit probability and target-hit summary indicators for the ROI target
-- rolling pre-draw summary table sorted by newest draw date first and including draw number when available from official history
-- rolling pre-draw summary status labels distinguish skipped draws from played outcomes; "Break-even" is only used when a played draw has net result 0
-- skipped-profitable-draw diagnostics in rolling timeline, including draw-level missed-profit listing, threshold-sweep analysis to guide no-bet threshold tuning, and one-click application of suggested threshold
 - machine start-position ball grids for main balls (1..39) and thunderballs (1..14), rendered as colored balls where color intensity maps to historical draw frequency
 - prize matrix display
-- next-draw prediction generation/regeneration and persistence
-- rolling timeline summary and per-ticket drill-down
-- CSV downloads for summary and prediction detail
-- simplified rolling timeline workflow with automatic recalculation when strategy/threshold changes and one-click threshold application from skipped-profit diagnostics
+- dedicated Delta System page with delta-signature analytics, delta-based ticket generation, side-by-side next-draw comparison against the current optimizer, rolling backtest comparison (Delta vs current optimizer), explicit method verdict, and a final next 9-ticket prediction section
+- dedicated Draw Position Range page with per-position analysis, heuristic next-draw direction signals, 9-ticket portfolio generation from position ranges, historical P&L backtest, explicit method verdict, and a final next 9-ticket prediction section
+- dedicated Random Ticket Selection page with uniformly random ticket generation (no historical analysis), historical P&L backtest as a statistical baseline, explicit method verdict, and a final next 9-ticket prediction section
+- dedicated Main Ball Sum Filter page that computes the sum of the 5 main balls for every historical draw, fits a normal distribution to the sum data, filters generated tickets to those whose main-ball sum falls within mean ± σ-multiplier standard deviations, includes a historical P&L backtest, an explicit method verdict, and a final next 9-ticket prediction section
+- dedicated Prediction Configuration page that selects which future prediction method automation should use and persists that selection to reports/future_prediction_config.json
+- method pages shall contain the method-specific explanatory text, analysis, backtest, verdict, and final next 9-ticket prediction sections
 
 ### FR-6: Official Results Fetch
 
@@ -146,7 +153,11 @@ The evaluate pipeline shall:
 - load latest official draw
 - compare latest draw against stored prediction when target draw numbers match
 - compute ticket-level matches/payouts and portfolio totals
-- generate next prediction when source latest draw number changes
+- generate next prediction using the persisted automation method configuration when saved prediction state is absent, stale, or missing required method/config metadata
+- default automation to the current optimizer with downside_aware objective mode when no explicit automation config file exists
+- support current_optimizer, delta_system, position_range, random, and main_sum as selectable future-prediction methods
+- include prediction_method, prediction_method_label, and automation_config in the persisted next-prediction state
+- allow non-optimizer methods to omit optimizer-only metrics such as expected payout, break-even probability, target-hit probability, and coverage score
 - persist report and state artifacts under reports/
 
 ### FR-8: Email Delivery
@@ -182,12 +193,23 @@ All unspecified combinations map to 0 payout.
 ### 7.2 Reports/State
 
 - reports/current_prediction.json
+- reports/future_prediction_config.json
 - reports/latest_prediction_report.txt
 - reports/latest_email_subject.txt
 - reports/no_bet_threshold.json
 - reports/rolling_9_draw_timeline_cache.json
 - reports/rolling_9_draw_timeline_summary.csv
 - reports/rolling_9_draw_timeline_predictions.csv
+
+Current artifact semantics:
+- reports/current_prediction.json stores the persisted next-draw portfolio including generated_at, source_latest_draw_number, target_draw_number, prediction_method, prediction_method_label, automation_config, objective_mode, ticket_count, target_payout, optional estimated_expected_payout, optional estimated_probability_target, optional estimated_probability_break_even, optional coverage_score, note, and the predicted tickets
+- reports/future_prediction_config.json stores the automation method selection and its parameters, including method, ticket_count, seed, optimizer_objective_mode, delta_top_signatures, range_lookback_draws, and sum_sigma_multiplier
+- reports/latest_prediction_report.txt stores a text report containing the latest official draw, optional evaluation of the previous stored prediction, and the next predicted portfolio summary
+- reports/latest_email_subject.txt stores the email subject line derived from the latest evaluated draw and next target draw number
+- reports/no_bet_threshold.json stores the saved rolling timeline no-bet threshold as no_bet_threshold
+- reports/rolling_9_draw_timeline_cache.json stores rolling cache metadata including objective_mode, no_bet_threshold, row_count, and a dataframe hash used for cache validation
+- reports/rolling_9_draw_timeline_summary.csv stores one row per evaluated draw with played/skipped status, edge score, realized and hypothetical payout/cost/net values, and actual draw summary fields
+- reports/rolling_9_draw_timeline_predictions.csv stores one row per predicted ticket per evaluated draw including predicted numbers, actual numbers, match counts, payout, and ticket-level profitability
 
 ## 8. Operational Behavior
 

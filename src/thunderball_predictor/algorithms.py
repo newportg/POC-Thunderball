@@ -352,6 +352,7 @@ def _portfolio_objective(
     ticket_cost: int,
     target_payout: int,
     objective_mode: str,
+    main_match_vector: np.ndarray | None = None,
 ) -> tuple[float, float, float, float]:
     expected_payout = float(np.mean(payout_vector))
     probability_target = float(np.mean(payout_vector >= target_payout))
@@ -365,6 +366,16 @@ def _portfolio_objective(
     coverage_score = _portfolio_coverage_score(tickets)
     overlap_penalty = _portfolio_overlap_penalty(tickets)
 
+    probability_main_3plus = (
+        float(np.mean(main_match_vector >= 3)) if main_match_vector is not None else 0.0
+    )
+    probability_main_4plus = (
+        float(np.mean(main_match_vector >= 4)) if main_match_vector is not None else 0.0
+    )
+    expected_best_main_matches = (
+        float(np.mean(main_match_vector)) if main_match_vector is not None else 0.0
+    )
+
     if objective_mode == "downside_aware":
         objective = (
             probability_profit * 13.0
@@ -375,6 +386,19 @@ def _portfolio_objective(
             - overlap_penalty * 0.45
             - full_loss_probability * 8.0
             - downside_shortfall * 4.0
+        )
+    elif objective_mode == "main_hit_focused":
+        objective = (
+            probability_main_3plus * 14.0
+            + probability_main_4plus * 6.0
+            + expected_best_main_matches * 1.8
+            + probability_break_even * 3.0
+            + probability_target * 2.0
+            + (expected_payout / max(target_payout, 1))
+            + coverage_score * 0.45
+            - overlap_penalty * 0.35
+            - full_loss_probability * 4.0
+            - downside_shortfall * 2.0
         )
     else:
         objective = (
@@ -395,8 +419,10 @@ def optimize_ticket_portfolio(
     simulation_draws: int = 2500,
     objective_mode: str = "balanced",
 ) -> PortfolioOptimizationResult:
-    if objective_mode not in {"balanced", "downside_aware"}:
-        raise ValueError("objective_mode must be 'balanced' or 'downside_aware'.")
+    if objective_mode not in {"balanced", "downside_aware", "main_hit_focused"}:
+        raise ValueError(
+            "objective_mode must be 'balanced', 'downside_aware', or 'main_hit_focused'."
+        )
 
     rng = np.random.default_rng(seed)
     main_weights, thunder_weights = _build_blended_weights(df)
@@ -425,13 +451,22 @@ def optimize_ticket_portfolio(
     )
 
     payout_matrix = np.zeros((len(candidate_pool), len(sampled_draws)), dtype=int)
+    main_match_matrix = np.zeros((len(candidate_pool), len(sampled_draws)), dtype=int)
     for candidate_idx, ticket in enumerate(candidate_pool):
-        payout_matrix[candidate_idx] = np.array(
-            [_ticket_payout(ticket, draw) for draw in sampled_draws], dtype=int
-        )
+        payout_values: list[int] = []
+        main_match_values: list[int] = []
+        ticket_main_set = set(ticket.main_numbers)
+        for draw in sampled_draws:
+            main_matches = len(ticket_main_set & set(draw.main_numbers))
+            payout_values.append(PRIZE_MATRIX.get((main_matches, ticket.thunderball == draw.thunderball), 0))
+            main_match_values.append(main_matches)
+
+        payout_matrix[candidate_idx] = np.array(payout_values, dtype=int)
+        main_match_matrix[candidate_idx] = np.array(main_match_values, dtype=int)
 
     selected_indices: list[int] = []
     current_payouts = np.zeros(len(sampled_draws), dtype=int)
+    current_best_main_matches = np.zeros(len(sampled_draws), dtype=int)
 
     for _ in range(ticket_count):
         best_idx = -1
@@ -443,12 +478,17 @@ def optimize_ticket_portfolio(
 
             candidate_tickets = [candidate_pool[idx] for idx in [*selected_indices, candidate_idx]]
             candidate_payouts = current_payouts + payout_matrix[candidate_idx]
+            candidate_best_main_matches = np.maximum(
+                current_best_main_matches,
+                main_match_matrix[candidate_idx],
+            )
             objective, _, _, _ = _portfolio_objective(
                 candidate_tickets,
                 candidate_payouts,
                 ticket_cost=TICKET_COST_GBP,
                 target_payout=target_payout,
                 objective_mode=objective_mode,
+                main_match_vector=candidate_best_main_matches,
             )
 
             if objective > best_objective:
@@ -457,6 +497,10 @@ def optimize_ticket_portfolio(
 
         selected_indices.append(best_idx)
         current_payouts = current_payouts + payout_matrix[best_idx]
+        current_best_main_matches = np.maximum(
+            current_best_main_matches,
+            main_match_matrix[best_idx],
+        )
 
     selected_tickets = [candidate_pool[idx] for idx in selected_indices]
     _, expected_payout, probability_target, probability_break_even = _portfolio_objective(
@@ -465,6 +509,7 @@ def optimize_ticket_portfolio(
         ticket_cost=TICKET_COST_GBP,
         target_payout=target_payout,
         objective_mode=objective_mode,
+        main_match_vector=current_best_main_matches,
     )
 
     coverage_score = _portfolio_coverage_score(selected_tickets)
@@ -472,6 +517,13 @@ def optimize_ticket_portfolio(
         note = (
             "Optimized with downside-aware scoring to reduce complete-loss scenarios while keeping target-payout "
             "coverage under a history-weighted simulation model. "
+            f"Main balls with no historical co-occurrence were excluded ({excluded_count} excluded)."
+        )
+    elif objective_mode == "main_hit_focused":
+        note = (
+            "Optimized with a main-hit focused objective that prioritizes 3+ and 4+ main-ball outcomes while "
+            "still accounting for payout, downside, and portfolio diversity under a history-weighted simulation "
+            "model. "
             f"Main balls with no historical co-occurrence were excluded ({excluded_count} excluded)."
         )
     else:

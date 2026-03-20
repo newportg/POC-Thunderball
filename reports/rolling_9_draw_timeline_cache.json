@@ -1,6 +1,6 @@
 {
   "data_hash": 16207604162140073456,
-  "no_bet_threshold": 0.42,
+  "no_bet_threshold": 0.41,
   "objective_mode": "downside_aware",
   "row_count": 103
 }
