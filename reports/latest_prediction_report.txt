@@ -1,14 +1,14 @@
 Thunderball Automated Update
 
-Latest draw: #3874
-Draw date: 2026-03-24
-Draw result: 03-06-14-15-38 | TB 13
+Latest draw: #3875
+Draw date: 2026-03-25
+Draw result: 06-16-22-25-34 | TB 06
 Machine: Excalibur5
 Ball set: T8
 
 Evaluation against previous prediction
 --------------------------------------
-Prediction generated at: 2026-03-21T21:31:50+00:00
+Prediction generated at: 2026-03-24T21:44:21+00:00
 Winning tickets: 0 of 9
 Best main match count: 2
 Thunderball hits: 0
@@ -17,35 +17,35 @@ Total cost: GBP9
 Net result: GBP-9
 
 Per-ticket results:
-01. 07-10-11-14-38 | TB 05 | main matches 2 | thunderball N | payout GBP0
-02. 12-15-20-29-38 | TB 03 | main matches 2 | thunderball N | payout GBP0
-03. 04-11-14-22-32 | TB 11 | main matches 1 | thunderball N | payout GBP0
-04. 16-23-26-27-32 | TB 08 | main matches 0 | thunderball N | payout GBP0
-05. 13-16-32-36-39 | TB 05 | main matches 0 | thunderball N | payout GBP0
-06. 03-08-11-24-28 | TB 03 | main matches 1 | thunderball N | payout GBP0
-07. 11-12-26-31-37 | TB 12 | main matches 0 | thunderball N | payout GBP0
-08. 01-11-13-16-23 | TB 07 | main matches 0 | thunderball N | payout GBP0
-09. 02-08-10-20-21 | TB 05 | main matches 0 | thunderball N | payout GBP0
+01. 11-13-27-32-36 | TB 05 | main matches 0 | thunderball N | payout GBP0
+02. 11-14-20-29-38 | TB 03 | main matches 0 | thunderball N | payout GBP0
+03. 01-11-26-37-38 | TB 08 | main matches 0 | thunderball N | payout GBP0
+04. 14-26-28-32-35 | TB 13 | main matches 0 | thunderball N | payout GBP0
+05. 06-07-11-18-38 | TB 05 | main matches 1 | thunderball N | payout GBP0
+06. 14-15-17-21-39 | TB 03 | main matches 0 | thunderball N | payout GBP0
+07. 11-21-24-31-32 | TB 13 | main matches 0 | thunderball N | payout GBP0
+08. 13-24-29-32-38 | TB 12 | main matches 0 | thunderball N | payout GBP0
+09. 22-23-26-29-34 | TB 05 | main matches 2 | thunderball N | payout GBP0
 
-Next prediction for draw #3875
+Next prediction for draw #3876
 --------------------------------
-Generated at: 2026-03-24T21:44:21+00:00
+Generated at: 2026-03-25T21:48:18+00:00
 Prediction method: Current Optimizer
 Objective mode: downside_aware
-Estimated expected payout: GBP11.87
-Estimated probability of payout >= GBP10: 41.84%
-Estimated probability of break-even: 42.12%
-Coverage score: 0.6333
+Estimated expected payout: GBP9.08
+Estimated probability of payout >= GBP10: 40.08%
+Estimated probability of break-even: 40.52%
+Coverage score: 0.6154
 
 Predicted tickets:
-01. 11-13-27-32-36 | TB 05
-02. 11-14-20-29-38 | TB 03
-03. 01-11-26-37-38 | TB 08
-04. 14-26-28-32-35 | TB 13
-05. 06-07-11-18-38 | TB 05
-06. 14-15-17-21-39 | TB 03
-07. 11-21-24-31-32 | TB 13
-08. 13-24-29-32-38 | TB 12
+01. 06-08-11-14-38 | TB 05
+02. 07-11-22-31-38 | TB 03
+03. 13-16-32-36-39 | TB 06
+04. 14-25-26-32-35 | TB 11
+05. 13-15-27-29-39 | TB 05
+06. 11-15-20-29-38 | TB 03
+07. 05-06-07-26-37 | TB 06
+08. 11-18-26-32-38 | TB 04
 09. 22-23-26-29-34 | TB 05
 
 Model note: Optimized with downside-aware scoring to reduce complete-loss scenarios while keeping target-payout coverage under a history-weighted simulation model. Main balls with no historical co-occurrence were excluded (0 excluded).
