@@ -43,23 +43,23 @@ jobs:
         run: |
           python evaluate_and_predict.py
 
-      - name: Send prediction report email via Mailtrap API
-        id: mailtrap_send
-        continue-on-error: true
-        env:
-          MAILTRAP_API_TOKEN: ${{ secrets.MAILTRAP_API_TOKEN }}
-          MAILTRAP_EMAIL_TO: ${{ vars.MAILTRAP_EMAIL_TO }}
-          MAILTRAP_EMAIL_FROM: ${{ vars.MAILTRAP_EMAIL_FROM }}
-          MAILTRAP_USE_SANDBOX: ${{ vars.MAILTRAP_USE_SANDBOX }}
-          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
-          ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
-        run: |
-          python send_report_via_mailtrap.py
+      # - name: Send prediction report email via Mailtrap API
+      #   id: mailtrap_send
+      #   continue-on-error: true
+      #   env:
+      #     MAILTRAP_API_TOKEN: ${{ secrets.MAILTRAP_API_TOKEN }}
+      #     MAILTRAP_EMAIL_TO: ${{ vars.MAILTRAP_EMAIL_TO }}
+      #     MAILTRAP_EMAIL_FROM: ${{ vars.MAILTRAP_EMAIL_FROM }}
+      #     MAILTRAP_USE_SANDBOX: ${{ vars.MAILTRAP_USE_SANDBOX }}
+      #     ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+      #     ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
+      #   run: |
+      #     python send_report_via_mailtrap.py
 
-      - name: Mailtrap send warning
-        if: ${{ steps.mailtrap_send.outcome == 'failure' }}
-        run: |
-          echo "⚠️ Mailtrap send failed. Data update still completed; check the Mailtrap step logs for details."
+      # - name: Mailtrap send warning
+      #   if: ${{ steps.mailtrap_send.outcome == 'failure' }}
+      #   run: |
+      #     echo "⚠️ Mailtrap send failed. Data update still completed; check the Mailtrap step logs for details."
       
       - name: Commit and push changes
         run: |
