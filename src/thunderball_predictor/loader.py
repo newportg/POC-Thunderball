@@ -60,11 +60,16 @@ def load_draw_history(csv_path: str | Path) -> pd.DataFrame:
 
     # Keep only the known schema so extra CSV columns do not break downstream logic.
     df = df[EXPECTED_COLUMNS].copy()
-    # Official downloads use values like 14-Mar-2026; infer mixed formats safely.
-    df["draw_date"] = pd.to_datetime(df["draw_date"], errors="coerce", dayfirst=True)
+    # Draw history uses dd-MMM-YYYY format (e.g. 14-Mar-2026).
+    raw_dates = df["draw_date"].copy()
+    df["draw_date"] = pd.to_datetime(df["draw_date"], format="%d-%b-%Y", errors="coerce")
 
     if df["draw_date"].isna().any():
-        raise DataValidationError("draw_date contains invalid values. Use ISO date format YYYY-MM-DD.")
+        offending = raw_dates[df["draw_date"].isna()].tolist()
+        raise DataValidationError(
+            f"draw_date contains invalid values. Expected format dd-MMM-YYYY (e.g. 14-Mar-2026). "
+            f"Offending value(s): {offending}"
+        )
 
     for col in ["n1", "n2", "n3", "n4", "n5", "thunderball"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
