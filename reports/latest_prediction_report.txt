@@ -1,35 +1,51 @@
 Thunderball Automated Update
 
-Latest draw: #3899
-Draw date: 2026-05-06
-Draw result: 02-12-19-24-39 | TB 12
+Latest draw: #3900
+Draw date: 2026-05-08
+Draw result: 11-14-22-31-32 | TB 03
 Machine: Excalibur5
 Ball set: T4
 
 Evaluation against previous prediction
 --------------------------------------
-Stored prediction target did not match the latest available draw, so no direct evaluation was produced.
-Stored target draw: #3896
+Prediction generated at: 2026-05-06T22:02:12+00:00
+Winning tickets: 1 of 9
+Best main match count: 2
+Thunderball hits: 1
+Total payout: GBP10
+Total cost: GBP9
+Net result: GBP1
 
-Next prediction for draw #3900
+Per-ticket results:
+01. 11-17-26-32-38 | TB 05 | main matches 2 | thunderball N | payout GBP0
+02. 07-10-11-18-37 | TB 11 | main matches 1 | thunderball N | payout GBP0
+03. 01-11-26-37-38 | TB 08 | main matches 1 | thunderball N | payout GBP0
+04. 05-11-20-35-38 | TB 06 | main matches 1 | thunderball N | payout GBP0
+05. 02-10-11-17-26 | TB 05 | main matches 1 | thunderball N | payout GBP0
+06. 07-21-23-31-35 | TB 07 | main matches 1 | thunderball N | payout GBP0
+07. 01-16-24-26-37 | TB 07 | main matches 0 | thunderball N | payout GBP0
+08. 02-11-19-32-35 | TB 03 | main matches 2 | thunderball Y | payout GBP10
+09. 01-02-08-24-31 | TB 05 | main matches 1 | thunderball N | payout GBP0
+
+Next prediction for draw #3901
 --------------------------------
-Generated at: 2026-05-06T22:02:12+00:00
+Generated at: 2026-05-08T22:03:23+00:00
 Prediction method: Current Optimizer
 Objective mode: downside_aware
-Estimated expected payout: GBP9.54
-Estimated probability of payout >= GBP10: 38.68%
-Estimated probability of break-even: 39.40%
-Coverage score: 0.5769
+Estimated expected payout: GBP12.13
+Estimated probability of payout >= GBP10: 41.48%
+Estimated probability of break-even: 42.24%
+Coverage score: 0.6333
 
 Predicted tickets:
 01. 11-17-26-32-38 | TB 05
 02. 07-10-11-18-37 | TB 11
-03. 01-11-26-37-38 | TB 08
-04. 05-11-20-35-38 | TB 06
-05. 02-10-11-17-26 | TB 05
-06. 07-21-23-31-35 | TB 07
-07. 01-16-24-26-37 | TB 07
-08. 02-11-19-32-35 | TB 03
-09. 01-02-08-24-31 | TB 05
+03. 07-21-23-31-35 | TB 07
+04. 03-07-11-14-26 | TB 14
+05. 07-10-11-15-38 | TB 05
+06. 01-16-24-26-37 | TB 07
+07. 04-11-13-23-32 | TB 11
+08. 05-11-20-35-38 | TB 10
+09. 02-03-08-26-29 | TB 05
 
 Model note: Optimized with downside-aware scoring to reduce complete-loss scenarios while keeping target-payout coverage under a history-weighted simulation model. Main balls with no historical co-occurrence were excluded (0 excluded).
