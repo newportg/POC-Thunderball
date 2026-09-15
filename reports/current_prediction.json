@@ -8,17 +8,17 @@
     "sum_sigma_multiplier": 1.5,
     "ticket_count": 9
   },
-  "coverage_score": 0.6641,
-  "estimated_expected_payout": 11.05,
-  "estimated_probability_break_even": 0.3232,
-  "estimated_probability_target": 0.3232,
-  "generated_at": "2026-09-12T22:54:56+00:00",
+  "coverage_score": 0.6667,
+  "estimated_expected_payout": 9.96,
+  "estimated_probability_break_even": 0.3424,
+  "estimated_probability_target": 0.3368,
+  "generated_at": "2026-09-15T23:28:18+00:00",
   "note": "Optimized with downside-aware scoring to reduce complete-loss scenarios while keeping target-payout coverage under a history-weighted simulation model. Main balls with no historical co-occurrence were excluded (0 excluded).",
   "objective_mode": "downside_aware",
   "prediction_method": "current_optimizer",
   "prediction_method_label": "Current Optimizer",
-  "source_latest_draw_number": 3973,
-  "target_draw_number": 3974,
+  "source_latest_draw_number": 3974,
+  "target_draw_number": 3975,
   "target_payout": 10,
   "ticket_count": 9,
   "tickets": [
@@ -26,7 +26,7 @@
       "main_numbers": [
         11,
         16,
-        24,
+        23,
         29,
         38
       ],
@@ -44,6 +44,26 @@
     },
     {
       "main_numbers": [
+        6,
+        7,
+        11,
+        14,
+        26
+      ],
+      "thunderball": 14
+    },
+    {
+      "main_numbers": [
+        6,
+        11,
+        16,
+        21,
+        27
+      ],
+      "thunderball": 6
+    },
+    {
+      "main_numbers": [
         16,
         23,
         26,
@@ -54,33 +74,23 @@
     },
     {
       "main_numbers": [
-        4,
-        11,
+        3,
         14,
-        23,
-        32
-      ],
-      "thunderball": 11
-    },
-    {
-      "main_numbers": [
-        2,
-        10,
-        11,
-        16,
-        26
-      ],
-      "thunderball": 5
-    },
-    {
-      "main_numbers": [
-        7,
-        14,
-        16,
-        31,
-        37
+        22,
+        32,
+        35
       ],
       "thunderball": 3
+    },
+    {
+      "main_numbers": [
+        5,
+        15,
+        21,
+        35,
+        38
+      ],
+      "thunderball": 6
     },
     {
       "main_numbers": [
@@ -94,23 +104,13 @@
     },
     {
       "main_numbers": [
-        1,
-        6,
-        8,
-        20,
-        24
-      ],
-      "thunderball": 6
-    },
-    {
-      "main_numbers": [
+        7,
         11,
-        26,
-        28,
-        31,
-        34
+        12,
+        18,
+        38
       ],
-      "thunderball": 14
+      "thunderball": 3
     }
   ]
 }
