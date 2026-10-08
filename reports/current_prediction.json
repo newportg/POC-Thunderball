@@ -8,17 +8,17 @@
     "sum_sigma_multiplier": 1.5,
     "ticket_count": 9
   },
-  "coverage_score": 0.6333,
-  "estimated_expected_payout": 10.37,
-  "estimated_probability_break_even": 0.344,
-  "estimated_probability_target": 0.336,
-  "generated_at": "2026-10-07T00:31:05+00:00",
+  "coverage_score": 0.6513,
+  "estimated_expected_payout": 7.92,
+  "estimated_probability_break_even": 0.3464,
+  "estimated_probability_target": 0.34,
+  "generated_at": "2026-10-08T00:52:31+00:00",
   "note": "Optimized with downside-aware scoring to reduce complete-loss scenarios while keeping target-payout coverage under a history-weighted simulation model. Main balls with no historical co-occurrence were excluded (0 excluded).",
   "objective_mode": "downside_aware",
   "prediction_method": "current_optimizer",
   "prediction_method_label": "Current Optimizer",
-  "source_latest_draw_number": 3986,
-  "target_draw_number": 3987,
+  "source_latest_draw_number": 3987,
+  "target_draw_number": 3988,
   "target_payout": 10,
   "ticket_count": 9,
   "tickets": [
@@ -44,29 +44,29 @@
     },
     {
       "main_numbers": [
-        15,
-        16,
-        32,
-        35,
-        39
-      ],
-      "thunderball": 6
-    },
-    {
-      "main_numbers": [
         1,
         15,
         24,
-        25,
+        26,
         37
       ],
       "thunderball": 7
     },
     {
       "main_numbers": [
+        5,
         11,
         16,
-        23,
+        24,
+        27
+      ],
+      "thunderball": 6
+    },
+    {
+      "main_numbers": [
+        11,
+        15,
+        21,
         29,
         38
       ],
@@ -104,13 +104,13 @@
     },
     {
       "main_numbers": [
-        6,
-        11,
-        16,
-        20,
-        27
+        2,
+        7,
+        19,
+        35,
+        39
       ],
-      "thunderball": 6
+      "thunderball": 11
     }
   ]
 }
