@@ -1,51 +1,51 @@
 Thunderball Automated Update
 
-Latest draw: #3997
-Draw date: 2026-10-24
-Draw result: 18-21-33-35-37 | TB 02
-Machine: Excalibur4
-Ball set: T10
+Latest draw: #3998
+Draw date: 2026-10-27
+Draw result: 01-02-10-20-34 | TB 03
+Machine: Excalibur5
+Ball set: T1
 
 Evaluation against previous prediction
 --------------------------------------
-Prediction generated at: 2026-10-23T23:47:58+00:00
-Winning tickets: 1 of 9
-Best main match count: 2
-Thunderball hits: 1
-Total payout: GBP5
+Prediction generated at: 2026-10-24T23:02:04+00:00
+Winning tickets: 3 of 9
+Best main match count: 1
+Thunderball hits: 3
+Total payout: GBP9
 Total cost: GBP9
-Net result: GBP-4
+Net result: GBP0
 
 Per-ticket results:
-01. 07-08-23-29-38 | TB 03 | main matches 0 | thunderball N | payout GBP0
-02. 16-22-26-31-35 | TB 02 | main matches 1 | thunderball Y | payout GBP5
-03. 02-11-18-32-34 | TB 06 | main matches 1 | thunderball N | payout GBP0
-04. 07-10-11-16-38 | TB 11 | main matches 0 | thunderball N | payout GBP0
-05. 15-17-20-24-26 | TB 12 | main matches 0 | thunderball N | payout GBP0
-06. 04-21-23-37-39 | TB 06 | main matches 2 | thunderball N | payout GBP0
-07. 14-15-30-35-39 | TB 03 | main matches 1 | thunderball N | payout GBP0
-08. 01-13-21-23-38 | TB 07 | main matches 1 | thunderball N | payout GBP0
-09. 06-12-16-29-37 | TB 03 | main matches 1 | thunderball N | payout GBP0
+01. 16-23-26-31-35 | TB 02 | main matches 0 | thunderball N | payout GBP0
+02. 07-11-12-18-38 | TB 03 | main matches 0 | thunderball Y | payout GBP3
+03. 15-16-33-37-39 | TB 06 | main matches 0 | thunderball N | payout GBP0
+04. 01-16-24-26-37 | TB 07 | main matches 1 | thunderball N | payout GBP0
+05. 14-24-28-32-35 | TB 13 | main matches 0 | thunderball N | payout GBP0
+06. 08-11-21-32-38 | TB 02 | main matches 0 | thunderball N | payout GBP0
+07. 14-15-30-35-39 | TB 03 | main matches 0 | thunderball Y | payout GBP3
+08. 07-10-11-16-38 | TB 11 | main matches 1 | thunderball N | payout GBP0
+09. 07-08-23-29-38 | TB 03 | main matches 0 | thunderball Y | payout GBP3
 
-Next prediction for draw #3998
+Next prediction for draw #3999
 --------------------------------
-Generated at: 2026-10-24T23:02:04+00:00
+Generated at: 2026-10-28T00:21:45+00:00
 Prediction method: Current Optimizer
 Objective mode: downside_aware
-Estimated expected payout: GBP8.96
-Estimated probability of payout >= GBP10: 29.88%
-Estimated probability of break-even: 30.24%
-Coverage score: 0.6308
+Estimated expected payout: GBP9.25
+Estimated probability of payout >= GBP10: 30.60%
+Estimated probability of break-even: 31.16%
+Coverage score: 0.6846
 
 Predicted tickets:
-01. 16-23-26-31-35 | TB 02
-02. 07-11-12-18-38 | TB 03
-03. 15-16-33-37-39 | TB 06
-04. 01-16-24-26-37 | TB 07
-05. 14-24-28-32-35 | TB 13
-06. 08-11-21-32-38 | TB 02
-07. 14-15-30-35-39 | TB 03
-08. 07-10-11-16-38 | TB 11
-09. 07-08-23-29-38 | TB 03
+01. 07-08-23-29-38 | TB 03
+02. 16-23-26-31-35 | TB 02
+03. 01-15-24-26-37 | TB 07
+04. 02-11-18-32-34 | TB 06
+05. 07-10-11-16-38 | TB 11
+06. 14-15-30-35-39 | TB 03
+07. 04-21-23-37-39 | TB 06
+08. 06-12-16-29-37 | TB 03
+09. 14-24-28-32-35 | TB 13
 
 Model note: Optimized with downside-aware scoring to reduce complete-loss scenarios while keeping target-payout coverage under a history-weighted simulation model. Main balls with no historical co-occurrence were excluded (0 excluded).
