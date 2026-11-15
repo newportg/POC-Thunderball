@@ -8,17 +8,17 @@
     "sum_sigma_multiplier": 1.5,
     "ticket_count": 9
   },
-  "coverage_score": 0.6538,
-  "estimated_expected_payout": 7.21,
-  "estimated_probability_break_even": 0.336,
-  "estimated_probability_target": 0.3212,
-  "generated_at": "2026-11-14T01:21:37+00:00",
+  "coverage_score": 0.7231,
+  "estimated_expected_payout": 6.36,
+  "estimated_probability_break_even": 0.2976,
+  "estimated_probability_target": 0.2876,
+  "generated_at": "2026-11-15T00:54:55+00:00",
   "note": "Optimized with downside-aware scoring to reduce complete-loss scenarios while keeping target-payout coverage under a history-weighted simulation model. Main balls with no historical co-occurrence were excluded (0 excluded).",
   "objective_mode": "downside_aware",
   "prediction_method": "current_optimizer",
   "prediction_method_label": "Current Optimizer",
-  "source_latest_draw_number": 4008,
-  "target_draw_number": 4009,
+  "source_latest_draw_number": 4009,
+  "target_draw_number": 4010,
   "target_payout": 10,
   "ticket_count": 9,
   "tickets": [
@@ -44,11 +44,11 @@
     },
     {
       "main_numbers": [
-        13,
-        26,
-        29,
-        32,
-        39
+        5,
+        9,
+        17,
+        23,
+        28
       ],
       "thunderball": 12
     },
@@ -74,23 +74,33 @@
     },
     {
       "main_numbers": [
-        5,
-        9,
-        17,
-        23,
-        28
+        13,
+        26,
+        29,
+        32,
+        38
       ],
       "thunderball": 12
     },
     {
       "main_numbers": [
-        3,
-        4,
+        10,
         11,
-        23,
-        33
+        19,
+        29,
+        36
       ],
-      "thunderball": 7
+      "thunderball": 2
+    },
+    {
+      "main_numbers": [
+        4,
+        21,
+        23,
+        37,
+        39
+      ],
+      "thunderball": 6
     },
     {
       "main_numbers": [
@@ -101,16 +111,6 @@
         37
       ],
       "thunderball": 3
-    },
-    {
-      "main_numbers": [
-        1,
-        10,
-        16,
-        23,
-        35
-      ],
-      "thunderball": 12
     }
   ]
 }
